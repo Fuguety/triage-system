@@ -13,7 +13,21 @@ test("starts triage with the first question", () =>
   const result = triageService.startTriage();
 
   assert.ok(result.sessionId);
+  assert.equal(result.patientNumber, 1000);
+  assert.equal(result.anonymous, true);
   assert.equal(result.question.id, "q1");
+});
+
+test("keeps optional intake details and marks identified patients as non-anonymous", () =>
+{
+  const result = triageService.startTriage(
+  {
+    patientId: "ABC123",
+    healthInsurance: "TK"
+  });
+
+  assert.equal(result.patientNumber, 1000);
+  assert.equal(result.anonymous, false);
 });
 
 test("progresses to the next question for a non-terminal answer", () =>

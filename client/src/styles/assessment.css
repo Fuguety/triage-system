@@ -1,0 +1,92 @@
+.assessment-panel
+{
+  margin-top: 24px;
+}
+
+.intake-panel,
+.question-card,
+.result-card
+{
+  text-align: left;
+}
+
+.surface-card
+{
+  box-shadow: var(--shadow);
+}
+
+.answer-list
+{
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.answer-grid
+{
+  display: grid;
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.answer-option
+{
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: flex-start;
+  text-align: left;
+  border-radius: 18px;
+}
+
+.answer-index
+{
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.22);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.question-topbar
+{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.patient-number
+{
+  margin-bottom: 8px;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.question-title,
+.result-title
+{
+  margin: 0;
+  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  line-height: 1.1;
+}
+
+.result-metrics
+{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+@media (max-width: 720px)
+{
+  .result-metrics
+  {
+    grid-template-columns: 1fr;
+  }
+}

@@ -50,6 +50,43 @@ test("returns 400 when sessionId is missing", () =>
   });
 });
 
+test("accepts optional intake details on start", () =>
+{
+  const response = createResponse();
+
+  triageController.startTriage(
+  {
+    body:
+    {
+      patientId: "123456",
+      healthInsurance: "AOK"
+    }
+  }, response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.payload.patientNumber, 1000);
+  assert.equal(response.payload.anonymous, false);
+});
+
+test("returns 400 when patientId is not a string", () =>
+{
+  const response = createResponse();
+
+  triageController.startTriage(
+  {
+    body:
+    {
+      patientId: 123
+    }
+  }, response);
+
+  assert.equal(response.statusCode, 400);
+  assert.deepEqual(response.payload,
+  {
+    error: "patientId must be a string"
+  });
+});
+
 test("returns 400 when answerId is missing", () =>
 {
   const response = createResponse();
@@ -72,9 +109,15 @@ test("returns 400 when answerId is missing", () =>
 test("returns queue data from the controller", () =>
 {
   const session = triageService.startTriage();
+  const result = triageService.answerQuestion(session.sessionId, "yes");
 
-  triageService.answerQuestion(session.sessionId, "yes");
-  queueService.enqueuePatient(session.sessionId, "RESUSCITATION");
+  queueService.enqueuePatient(session.sessionId, "RESUSCITATION",
+  {
+    anonymous: true,
+    healthInsurance: "",
+    patientId: "",
+    patientNumber: result.patientNumber
+  });
 
   const response = createResponse();
 
@@ -83,4 +126,5 @@ test("returns queue data from the controller", () =>
   assert.equal(response.statusCode, 200);
   assert.equal(response.payload.patients.length, 1);
   assert.equal(response.payload.patients[0].priority, "RESUSCITATION");
+  assert.equal(response.payload.patients[0].patientNumber, 1000);
 });

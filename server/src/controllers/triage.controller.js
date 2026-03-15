@@ -3,7 +3,23 @@ const triageService = require("../services/triage.service");
 
 exports.startTriage = (req, res) =>
 {
-  const triageSession = triageService.startTriage();
+  const { patientId, healthInsurance } = req.body || {};
+
+  if (patientId !== undefined && typeof patientId !== "string")
+  {
+    return res.status(400).json({ error: "patientId must be a string" });
+  }
+
+  if (healthInsurance !== undefined && typeof healthInsurance !== "string")
+  {
+    return res.status(400).json({ error: "healthInsurance must be a string" });
+  }
+
+  const triageSession = triageService.startTriage(
+  {
+    patientId,
+    healthInsurance
+  });
 
   res.json(triageSession);
 };
@@ -28,11 +44,18 @@ exports.answerQuestion = (req, res) =>
 
     if (result.done)
     {
-      const queueEntry = queueService.enqueuePatient(result.sessionId, result.priority);
+      const queueEntry = queueService.enqueuePatient(result.sessionId, result.priority,
+      {
+        anonymous: result.anonymous,
+        healthInsurance: result.healthInsurance,
+        patientId: result.patientId,
+        patientNumber: result.patientNumber
+      });
 
       return res.json(
       {
         done: true,
+        patientNumber: result.patientNumber,
         sessionId: result.sessionId,
         priority: result.priority,
         queuePosition: queueEntry.queuePosition

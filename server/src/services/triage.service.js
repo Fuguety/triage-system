@@ -55,6 +55,8 @@ const priorityMap =
   END_NON_URGENT: "NON_URGENT"
 };
 
+let patientNumberSequence = 1000;
+
 function createError(message, statusCode)
 {
   const error = new Error(message);
@@ -64,17 +66,29 @@ function createError(message, statusCode)
   return error;
 }
 
-function startTriage()
+function startTriage(patientDetails = {})
 {
   const sessionId = uuidv4();
+  const patientId = typeof patientDetails.patientId === "string" ? patientDetails.patientId.trim() : "";
+  const healthInsurance = typeof patientDetails.healthInsurance === "string" ? patientDetails.healthInsurance.trim() : "";
+  const patientNumber = patientNumberSequence++;
+  const anonymous = !patientId && !healthInsurance;
 
   sessions.set(sessionId,
   {
+    anonymous,
     currentQuestion: "q1",
-    completed: false
+    completed: false,
+    healthInsurance,
+    patientId,
+    patientNumber
   });
 
   return {
+    anonymous,
+    patientNumber,
+    patientId,
+    healthInsurance,
     sessionId,
     question: questions.q1
   };
@@ -117,6 +131,10 @@ function answerQuestion(sessionId, answerId)
 
     return {
       done: true,
+      anonymous: session.anonymous,
+      healthInsurance: session.healthInsurance,
+      patientId: session.patientId,
+      patientNumber: session.patientNumber,
       sessionId,
       priority
     };
@@ -133,6 +151,7 @@ function answerQuestion(sessionId, answerId)
 function resetTriageSessions()
 {
   sessions.clear();
+  patientNumberSequence = 1000;
 }
 
 module.exports = {

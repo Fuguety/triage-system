@@ -8,6 +8,8 @@ export default defineConfig({
   {
     proxy:
     {
+      "/admin": "http://localhost:5000",
+      "/auth": "http://localhost:5000",
       "/triage": "http://localhost:5000",
       "/health": "http://localhost:5000"
     }

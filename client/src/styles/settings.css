@@ -1,0 +1,97 @@
+.settings-card
+{
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.settings-form
+{
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-field-wide
+{
+  grid-column: 1 / -1;
+}
+
+.settings-copy
+{
+  max-width: 60ch;
+}
+
+.settings-swatch-row
+{
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.settings-swatch
+{
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.settings-swatch input
+{
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.settings-input
+{
+  width: 100%;
+}
+
+.settings-preview
+{
+  grid-column: 1 / -1;
+}
+
+.settings-actions
+{
+  grid-column: 1 / -1;
+}
+
+.settings-preview-card
+{
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 20px;
+}
+
+.settings-preview-badge
+{
+  display: inline-flex;
+  width: fit-content;
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.settings-note
+{
+  margin: 0;
+  color: var(--muted);
+}
+
+@media (max-width: 720px)
+{
+  .settings-form
+  {
+    grid-template-columns: 1fr;
+  }
+}
