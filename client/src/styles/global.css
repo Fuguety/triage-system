@@ -1,0 +1,114 @@
+body 
+{
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background-color: #f4f7fa;
+  color: #1c2733;
+}
+
+.container 
+{
+  max-width: 600px;
+  margin: 80px auto;
+  background: white;
+  padding: 40px;
+  border-radius: 10px;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+  text-align: center;
+}
+
+button 
+{
+  background-color: #1976d2;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+button:hover 
+{
+  background-color: #125ea2;
+}
+
+.secondary-button
+{
+  background-color: #e6eef7;
+  color: #1c2733;
+}
+
+.secondary-button:hover
+{
+  background-color: #d4e2f0;
+}
+
+button:disabled
+{
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.back-link
+{
+  display: inline-block;
+  margin-bottom: 20px;
+  color: #1976d2;
+  text-decoration: none;
+}
+
+.assessment-panel
+{
+  margin-top: 24px;
+}
+
+.question-label
+{
+  margin-bottom: 8px;
+  color: #5f6d7a;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.answer-list
+{
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.status
+{
+  margin-top: 20px;
+}
+
+.error
+{
+  color: #c62828;
+}
+
+.queue-list
+{
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+  text-align: left;
+}
+
+.queue-card
+{
+  padding: 20px;
+  border: 1px solid #d9e1e8;
+  border-radius: 10px;
+  background: #f9fbfd;
+}
+
+.queue-session
+{
+  margin-bottom: 0;
+  color: #5f6d7a;
+  font-size: 14px;
+  word-break: break-all;
+}
