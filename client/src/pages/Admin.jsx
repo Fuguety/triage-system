@@ -1,27 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import "../styles/admin.css"
+import { getAdminQueue, updateQueuePatient, updateQueueStatus } from "../services/adminService"
+import { clearAuth as clearStoredAuth, getStoredHospital, getStoredToken, loginDebugHospital, loginHospital, registerHospital, storeAuth as storeStoredAuth } from "../services/authService"
 import { getPriorityMeta } from "../utils/priority"
 
-const TOKEN_KEY = "triage-admin-token"
-const HOSPITAL_KEY = "triage-admin-hospital"
 const STATUS_TABS = ["waiting", "assessing", "completed", "rejected"]
-
-
-
-function getStoredToken()
-{
-  return localStorage.getItem(TOKEN_KEY) || ""
-}
-
-
-
-function getStoredHospital()
-{
-  const value = localStorage.getItem(HOSPITAL_KEY)
-
-  return value ? JSON.parse(value) : null
-}
 
 
 
@@ -44,8 +28,7 @@ function Admin()
 
   function storeAuth(authToken, authHospital)
   {
-    localStorage.setItem(TOKEN_KEY, authToken)
-    localStorage.setItem(HOSPITAL_KEY, JSON.stringify(authHospital))
+    storeStoredAuth(authToken, authHospital)
     setToken(authToken)
     setHospital(authHospital)
   }
@@ -54,8 +37,7 @@ function Admin()
 
   function clearAuth()
   {
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(HOSPITAL_KEY)
+    clearStoredAuth()
     setToken("")
     setHospital(null)
     setQueue([])
@@ -72,6 +54,7 @@ function Admin()
       nextState[patient.sessionId] =
       {
         aboutDetails: patient.aboutDetails || "",
+        fullName: patient.fullName || "",
         healthInsurance: patient.healthInsurance || "",
         patientId: patient.patientId || ""
       }
@@ -89,20 +72,7 @@ function Admin()
       setLoading(true)
       setError("")
 
-      const response = await fetch("/admin/queue",
-      {
-        headers:
-        {
-          Authorization: `Bearer ${activeToken}`
-        }
-      })
-
-      const data = await response.json()
-
-      if (!response.ok)
-      {
-        throw new Error(data.error || "Failed to load admin queue")
-      }
+      const data = await getAdminQueue(activeToken)
 
       setQueue(data.patients)
       syncFormState(data.patients)
@@ -138,28 +108,9 @@ function Admin()
       setLoading(true)
       setError("")
 
-      const endpoint = mode === "register" ? "/auth/register" : "/auth/login"
-      const response = await fetch(endpoint,
-      {
-        method: "POST",
-        headers:
-        {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(
-        {
-          name,
-          email,
-          password
-        })
-      })
-
-      const data = await response.json()
-
-      if (!response.ok)
-      {
-        throw new Error(data.error || "Authentication failed")
-      }
+      const data = mode === "register"
+        ? await registerHospital(name, email, password)
+        : await loginHospital(email, password)
 
       storeAuth(data.token, data.hospital)
       setPassword("")
@@ -187,26 +138,7 @@ function Admin()
       setLoading(true)
       setError("")
 
-      const response = await fetch("/auth/login",
-      {
-        method: "POST",
-        headers:
-        {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(
-        {
-          email: "debug@triage.local",
-          password: "debug123"
-        })
-      })
-
-      const data = await response.json()
-
-      if (!response.ok)
-      {
-        throw new Error(data.error || "Debug login failed")
-      }
+      const data = await loginDebugHospital()
 
       storeAuth(data.token, data.hospital)
     }
@@ -246,23 +178,7 @@ function Admin()
       setSavingId(sessionId)
       setError("")
 
-      const response = await fetch(`/admin/queue/${sessionId}`,
-      {
-        method: "PATCH",
-        headers:
-        {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(formState[sessionId] || {})
-      })
-
-      const data = await response.json()
-
-      if (!response.ok)
-      {
-        throw new Error(data.error || "Failed to update patient")
-      }
+      await updateQueuePatient(token, sessionId, formState[sessionId] || {})
 
       await loadQueue(token)
     }
@@ -285,21 +201,7 @@ function Admin()
       setSavingId(sessionId)
       setError("")
 
-      const response = await fetch(`/admin/queue/${sessionId}/${action}`,
-      {
-        method: "POST",
-        headers:
-        {
-          Authorization: `Bearer ${token}`
-        }
-      })
-
-      const data = await response.json()
-
-      if (!response.ok)
-      {
-        throw new Error(data.error || "Failed to update queue")
-      }
+      await updateQueueStatus(token, sessionId, action)
 
       await loadQueue(token)
 
@@ -439,6 +341,7 @@ function Admin()
                         </p>
                         <h3>{priorityMeta.icon} {priorityMeta.level} - {priorityMeta.label}</h3>
                         <p className="queue-session">Color reference: {priorityMeta.hex}</p>
+                        <p className="queue-session">Full name: {patient.fullName || "Not provided"}</p>
                         <p className="queue-session">Patient number: #{patient.patientNumber}</p>
                       </div>
 
@@ -449,6 +352,16 @@ function Admin()
                     </div>
 
                     <div className="form-grid">
+                      <label className="form-field">
+                        <span>Full Name</span>
+                        <input
+                          aria-label={`Full name for patient ${patient.patientNumber}`}
+                          onChange={event => handleFieldChange(patient.sessionId, "fullName", event.target.value)}
+                          type="text"
+                          value={formState[patient.sessionId]?.fullName || ""}
+                        />
+                      </label>
+
                       <label className="form-field">
                         <span>Patient ID</span>
                         <input

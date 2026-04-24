@@ -1,17 +1,15 @@
 import { useCallback, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import "../styles/admin.css"
-
-const TOKEN_KEY = "triage-admin-token"
-
-
+import { getAuditLog } from "../services/adminService"
+import { getStoredToken } from "../services/authService"
 
 function AdminAudit()
 {
   const [entries, setEntries] = useState([])
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const token = localStorage.getItem(TOKEN_KEY) || ""
+  const token = getStoredToken()
 
   const loadAudit = useCallback(async () =>
   {
@@ -20,20 +18,7 @@ function AdminAudit()
       setLoading(true)
       setError("")
 
-      const response = await fetch("/admin/audit",
-      {
-        headers:
-        {
-          Authorization: `Bearer ${token}`
-        }
-      })
-
-      const data = await response.json()
-
-      if (!response.ok)
-      {
-        throw new Error(data.error || "Failed to load audit log")
-      }
+      const data = await getAuditLog(token)
 
       setEntries(data.entries)
     }

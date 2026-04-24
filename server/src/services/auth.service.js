@@ -1,24 +1,13 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { v4: uuidv4 } = require("uuid");
 
-const hospitals = new Map();
+const { pool } = require("../db/database");
 
 const JWT_SECRET = process.env.JWT_SECRET || "triage-dev-secret";
+const DEBUG_HOSPITAL_EMAIL = "debug@triage.local";
+const DEBUG_HOSPITAL_PASSWORD = "debug123";
 
-function seedTestHospital()
-{
-  const email = "debug@triage.local";
 
-  hospitals.set(email,
-  {
-    id: "debug-hospital",
-    name: "Debug Hospital",
-    email,
-    role: "admin",
-    passwordHash: bcrypt.hashSync("debug123", 10)
-  });
-}
 
 function createError(message, statusCode)
 {
@@ -28,6 +17,70 @@ function createError(message, statusCode)
 
   return error;
 }
+
+
+
+function normalizeEmail(email)
+{
+  return email.trim().toLowerCase();
+}
+
+
+
+function mapHospital(row)
+{
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role,
+    passwordHash: row.password_hash
+  };
+}
+
+
+
+async function findHospitalByEmail(email)
+{
+  const result = await pool.query(
+    `SELECT
+      id,
+      name,
+      email,
+      password_hash,
+      role
+    FROM hospitals
+    WHERE email = $1`,
+    [email]
+  );
+
+  return result.rows[0] ? mapHospital(result.rows[0]) : null;
+}
+
+
+
+async function ensureDebugHospital()
+{
+  const passwordHash = await bcrypt.hash(DEBUG_HOSPITAL_PASSWORD, 10);
+
+  await pool.query(
+    `INSERT INTO hospitals
+    (name, email, password_hash, role)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (email) DO UPDATE
+    SET name = EXCLUDED.name,
+      password_hash = EXCLUDED.password_hash,
+      role = EXCLUDED.role`,
+    [
+      "Debug Hospital",
+      DEBUG_HOSPITAL_EMAIL,
+      passwordHash,
+      "admin"
+    ]
+  );
+}
+
+
 
 function createAuthResponse(hospital)
 {
@@ -54,33 +107,45 @@ function createAuthResponse(hospital)
   };
 }
 
+
+
 async function registerHospital(name, email, password)
 {
-  const normalizedEmail = email.trim().toLowerCase();
+  await ensureDebugHospital();
 
-  if (hospitals.has(normalizedEmail))
+  const normalizedEmail = normalizeEmail(email);
+  const existingHospital = await findHospitalByEmail(normalizedEmail);
+
+  if (existingHospital)
   {
     throw createError("Hospital already registered", 409);
   }
 
-  const hospital =
-  {
-    id: uuidv4(),
-    name: name.trim(),
-    email: normalizedEmail,
-    role: "hospital_staff",
-    passwordHash: await bcrypt.hash(password, 10)
-  };
+  const passwordHash = await bcrypt.hash(password, 10);
+  const result = await pool.query(
+    `INSERT INTO hospitals
+    (name, email, password_hash, role)
+    VALUES ($1, $2, $3, $4)
+    RETURNING id, name, email, password_hash, role`,
+    [
+      name.trim(),
+      normalizedEmail,
+      passwordHash,
+      "hospital_staff"
+    ]
+  );
 
-  hospitals.set(normalizedEmail, hospital);
-
-  return createAuthResponse(hospital);
+  return createAuthResponse(mapHospital(result.rows[0]));
 }
+
+
 
 async function loginHospital(email, password)
 {
-  const normalizedEmail = email.trim().toLowerCase();
-  const hospital = hospitals.get(normalizedEmail);
+  await ensureDebugHospital();
+
+  const normalizedEmail = normalizeEmail(email);
+  const hospital = await findHospitalByEmail(normalizedEmail);
 
   if (!hospital)
   {
@@ -97,6 +162,8 @@ async function loginHospital(email, password)
   return createAuthResponse(hospital);
 }
 
+
+
 function verifyToken(token)
 {
   try
@@ -109,15 +176,18 @@ function verifyToken(token)
   }
 }
 
-function resetHospitals()
+
+
+async function resetHospitals()
 {
-  hospitals.clear();
-  seedTestHospital();
+  await pool.query("DELETE FROM hospitals");
+  await ensureDebugHospital();
 }
 
-seedTestHospital();
 
-module.exports = {
+
+module.exports =
+{
   loginHospital,
   registerHospital,
   resetHospitals,

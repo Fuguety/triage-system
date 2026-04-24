@@ -1,9 +1,14 @@
 const queueService = require("../services/queue.service");
 const triageService = require("../services/triage.service");
 
-exports.startTriage = (req, res) =>
+exports.startTriage = async (req, res) =>
 {
-  const { patientId, healthInsurance } = req.body || {};
+  const { fullName, patientId, healthInsurance } = req.body || {};
+
+  if (fullName !== undefined && typeof fullName !== "string")
+  {
+    return res.status(400).json({ error: "fullName must be a string" });
+  }
 
   if (patientId !== undefined && typeof patientId !== "string")
   {
@@ -15,16 +20,27 @@ exports.startTriage = (req, res) =>
     return res.status(400).json({ error: "healthInsurance must be a string" });
   }
 
-  const triageSession = triageService.startTriage(
+  try
   {
-    patientId,
-    healthInsurance
-  });
+    const triageSession = await triageService.startTriage(
+    {
+      fullName,
+      patientId,
+      healthInsurance
+    });
 
-  res.json(triageSession);
+    return res.json(triageSession);
+  }
+  catch (error)
+  {
+    return res.status(error.statusCode || 500).json({ error: error.message });
+  }
 };
 
-exports.answerQuestion = (req, res) =>
+
+
+
+exports.answerQuestion = async (req, res) =>
 {
   const { sessionId, answerId } = req.body || {};
 
@@ -40,13 +56,14 @@ exports.answerQuestion = (req, res) =>
 
   try
   {
-    const result = triageService.answerQuestion(sessionId, answerId);
+    const result = await triageService.answerQuestion(sessionId, answerId);
 
     if (result.done)
     {
-      const queueEntry = queueService.enqueuePatient(result.sessionId, result.priority,
+      const queueEntry = await queueService.enqueuePatient(result.sessionId, result.priority,
       {
         anonymous: result.anonymous,
+        fullName: result.fullName,
         healthInsurance: result.healthInsurance,
         patientId: result.patientId,
         patientNumber: result.patientNumber
@@ -70,13 +87,23 @@ exports.answerQuestion = (req, res) =>
   }
 };
 
-exports.getQueue = (req, res) =>
+
+
+
+exports.getQueue = async (req, res) =>
 {
-  res.json(
+  try
   {
-    priorities: queueService.getPriorityLevels(),
-    patients: queueService.getQueue()
-  });
+    return res.json(
+    {
+      priorities: queueService.getPriorityLevels(),
+      patients: await queueService.getQueue()
+    });
+  }
+  catch (error)
+  {
+    return res.status(error.statusCode || 500).json({ error: error.message });
+  }
 };
 
 

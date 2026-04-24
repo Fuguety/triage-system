@@ -1,3 +1,5 @@
+const { pool } = require("../db/database");
+
 const PRIORITY_LEVELS =
 [
   "RESUSCITATION",
@@ -7,230 +9,386 @@ const PRIORITY_LEVELS =
   "NON_URGENT"
 ];
 
-const priorityRank = PRIORITY_LEVELS.reduce((accumulator, priority, index) =>
-{
-  accumulator[priority] = index;
-
-  return accumulator;
-}, {});
-
-const queue = [];
-
 const PUBLIC_QUEUE_STATUSES = ["waiting"];
 
 const ACTIVE_STATUSES = ["waiting", "assessing"];
 
-let sequence = 0;
+const priorityOrderSql = `
+  CASE queue.priority_level
+    WHEN 'RESUSCITATION' THEN 1
+    WHEN 'EMERGENT' THEN 2
+    WHEN 'URGENT' THEN 3
+    WHEN 'LESS_URGENT' THEN 4
+    WHEN 'NON_URGENT' THEN 5
+    ELSE 6
+  END`;
 
 
 
-function compareEntries(left, right)
+function createError(message, statusCode)
 {
-  const leftRank = priorityRank[left.priority];
-  const rightRank = priorityRank[right.priority];
+  const error = new Error(message);
 
-  if (leftRank !== rightRank)
-  {
-    return leftRank - rightRank;
-  }
+  error.statusCode = statusCode;
 
-  return left.sequence - right.sequence;
+  return error;
 }
 
 
 
-function enqueuePatient(sessionId, priority, metadata = {})
+function validatePriority(priority)
 {
-  if (!priorityRank.hasOwnProperty(priority))
+  if (!PRIORITY_LEVELS.includes(priority))
   {
-    throw new Error("Invalid priority level");
+    throw createError("Invalid priority level", 400);
+  }
+}
+
+
+
+function serializeEntry(row, queuePosition)
+{
+  return {
+    anonymous: row.anonymous,
+    fullName: row.full_name || "",
+    healthInsurance: row.health_insurance || "",
+    patientId: row.patient_identifier || "",
+    sessionId: row.session_id,
+    priority: row.priority_level,
+    patientNumber: Number(row.patient_number),
+    aboutDetails: row.about_details || "",
+    status: row.status,
+    queuedAt: row.created_at,
+    queuePosition
+  };
+}
+
+
+
+async function findQueueRow(sessionId)
+{
+  const result = await pool.query(
+    `SELECT
+      queue.created_at,
+      queue.status,
+      queue.about_details,
+      queue.priority_level,
+      patients.anonymous,
+      patients.full_name,
+      patients.health_insurance,
+      patients.patient_identifier,
+      patients.patient_number,
+      triage_sessions.session_id
+    FROM queue
+    JOIN triage_sessions ON triage_sessions.id = queue.triage_session_id
+    JOIN patients ON patients.id = triage_sessions.patient_id
+    WHERE triage_sessions.session_id = $1`,
+    [sessionId]
+  );
+
+  return result.rows[0] || null;
+}
+
+
+
+async function getActiveQueuePosition(sessionId)
+{
+  const result = await pool.query(
+    `SELECT queue_data.queue_position
+    FROM
+    (
+      SELECT
+        triage_sessions.session_id,
+        ROW_NUMBER() OVER (ORDER BY ${priorityOrderSql}, queue.created_at ASC) AS queue_position
+      FROM queue
+      JOIN triage_sessions ON triage_sessions.id = queue.triage_session_id
+      WHERE queue.status = ANY($1)
+    ) AS queue_data
+    WHERE queue_data.session_id = $2`,
+    [ACTIVE_STATUSES, sessionId]
+  );
+
+  return result.rows[0] ? Number(result.rows[0].queue_position) : null;
+}
+
+
+
+async function enqueuePatient(sessionId, priority)
+{
+  validatePriority(priority);
+
+  const client = await pool.connect();
+
+  try
+  {
+    await client.query("BEGIN");
+
+    const sessionResult = await client.query(
+      "SELECT id, patient_id FROM triage_sessions WHERE session_id = $1",
+      [sessionId]
+    );
+
+    if (!sessionResult.rows[0])
+    {
+      throw createError("Session not found", 404);
+    }
+
+    await client.query(
+      `UPDATE triage_sessions
+      SET priority_level = $1,
+        status = $2,
+        completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP)
+      WHERE session_id = $3`,
+      [priority, "completed", sessionId]
+    );
+
+    const queueResult = await client.query(
+      `SELECT id
+      FROM queue
+      WHERE triage_session_id = $1`,
+      [sessionResult.rows[0].id]
+    );
+
+    if (queueResult.rows[0])
+    {
+      await client.query(
+        `UPDATE queue
+        SET priority_level = $1,
+          status = $2
+        WHERE triage_session_id = $3`,
+        [priority, "waiting", sessionResult.rows[0].id]
+      );
+    }
+    else
+    {
+      await client.query(
+        `INSERT INTO queue
+        (triage_session_id, priority_level, status)
+        VALUES ($1, $2, $3)`,
+        [sessionResult.rows[0].id, priority, "waiting"]
+      );
+    }
+
+    await client.query("COMMIT");
+  }
+  catch (error)
+  {
+    await client.query("ROLLBACK");
+
+    throw error;
+  }
+  finally
+  {
+    client.release();
   }
 
-  const entry =
-  {
-    anonymous: Boolean(metadata.anonymous),
-    healthInsurance: metadata.healthInsurance || "",
-    patientId: metadata.patientId || "",
-    sessionId,
-    priority,
-    patientNumber: metadata.patientNumber || null,
-    sequence: sequence++,
-    aboutDetails: metadata.aboutDetails || "",
-    status: "waiting",
-    queuedAt: new Date().toISOString()
-  };
-
-  queue.push(entry);
-  queue.sort(compareEntries);
+  const entry = await getPatient(sessionId);
 
   return {
     entry,
-    queuePosition: queue.findIndex(item => item.sessionId === sessionId) + 1
+    queuePosition: entry.queuePosition
   };
 }
 
 
 
-function getQueue()
+async function getQueue()
 {
-  return queue
-    .filter(entry => PUBLIC_QUEUE_STATUSES.includes(entry.status))
-    .map((entry, index) =>
-  {
-    return {
-      anonymous: entry.anonymous,
-      healthInsurance: entry.healthInsurance,
-      patientId: entry.patientId,
-      sessionId: entry.sessionId,
-      priority: entry.priority,
-      patientNumber: entry.patientNumber,
-      queuePosition: index + 1,
-      aboutDetails: entry.aboutDetails,
-      status: entry.status,
-      queuedAt: entry.queuedAt
-    };
-  });
+  const result = await pool.query(
+    `SELECT
+      queue.created_at,
+      queue.status,
+      queue.about_details,
+      queue.priority_level,
+      patients.anonymous,
+      patients.full_name,
+      patients.health_insurance,
+      patients.patient_identifier,
+      patients.patient_number,
+      triage_sessions.session_id,
+      ROW_NUMBER() OVER (ORDER BY ${priorityOrderSql}, queue.created_at ASC) AS queue_position
+    FROM queue
+    JOIN triage_sessions ON triage_sessions.id = queue.triage_session_id
+    JOIN patients ON patients.id = triage_sessions.patient_id
+    WHERE queue.status = ANY($1)
+    ORDER BY ${priorityOrderSql}, queue.created_at ASC`,
+    [PUBLIC_QUEUE_STATUSES]
+  );
+
+  return result.rows.map(row => serializeEntry(row, Number(row.queue_position)));
 }
 
 
 
-function serializeEntry(entry)
+async function getAdminQueue()
 {
-  return {
-    anonymous: entry.anonymous,
-    healthInsurance: entry.healthInsurance,
-    patientId: entry.patientId,
-    sessionId: entry.sessionId,
-    priority: entry.priority,
-    patientNumber: entry.patientNumber,
-    aboutDetails: entry.aboutDetails,
-    status: entry.status,
-    queuedAt: entry.queuedAt
-  };
+  const activeResult = await pool.query(
+    `SELECT
+      queue.created_at,
+      queue.status,
+      queue.about_details,
+      queue.priority_level,
+      patients.anonymous,
+      patients.full_name,
+      patients.health_insurance,
+      patients.patient_identifier,
+      patients.patient_number,
+      triage_sessions.session_id,
+      ROW_NUMBER() OVER (ORDER BY ${priorityOrderSql}, queue.created_at ASC) AS queue_position
+    FROM queue
+    JOIN triage_sessions ON triage_sessions.id = queue.triage_session_id
+    JOIN patients ON patients.id = triage_sessions.patient_id
+    WHERE queue.status = ANY($1)
+    ORDER BY ${priorityOrderSql}, queue.created_at ASC`,
+    [ACTIVE_STATUSES]
+  );
+
+  const resolvedResult = await pool.query(
+    `SELECT
+      queue.created_at,
+      queue.status,
+      queue.about_details,
+      queue.priority_level,
+      patients.anonymous,
+      patients.full_name,
+      patients.health_insurance,
+      patients.patient_identifier,
+      patients.patient_number,
+      triage_sessions.session_id
+    FROM queue
+    JOIN triage_sessions ON triage_sessions.id = queue.triage_session_id
+    JOIN patients ON patients.id = triage_sessions.patient_id
+    WHERE queue.status <> ALL($1)
+    ORDER BY queue.created_at DESC`,
+    [ACTIVE_STATUSES]
+  );
+
+  const activeEntries = activeResult.rows.map(row => serializeEntry(row, Number(row.queue_position)));
+  const resolvedEntries = resolvedResult.rows.map(row => serializeEntry(row, null));
+
+  return [...activeEntries, ...resolvedEntries];
 }
 
 
 
-function getAdminQueue()
+async function updatePatient(sessionId, updates)
 {
-  const activeEntries = queue
-    .filter(entry => ACTIVE_STATUSES.includes(entry.status))
-    .sort(compareEntries);
+  const row = await findQueueRow(sessionId);
 
-  const resolvedEntries = queue
-    .filter(entry => !ACTIVE_STATUSES.includes(entry.status))
-    .sort((left, right) => Date.parse(right.queuedAt) - Date.parse(left.queuedAt));
-
-  return [...activeEntries, ...resolvedEntries].map(entry =>
+  if (!row)
   {
-    const serialized = serializeEntry(entry);
-    const activeIndex = activeEntries.findIndex(item => item.sessionId === entry.sessionId);
+    throw createError("Queue entry not found", 404);
+  }
 
-    return {
-      ...serialized,
-      queuePosition: activeIndex >= 0 ? activeIndex + 1 : null
-    };
-  });
+  const fullName = updates.fullName !== undefined ? updates.fullName.trim() : row.full_name;
+  const patientIdentifier = updates.patientId !== undefined ? updates.patientId.trim() : row.patient_identifier;
+  const healthInsurance = updates.healthInsurance !== undefined ? updates.healthInsurance.trim() : row.health_insurance;
+  const aboutDetails = updates.aboutDetails !== undefined ? updates.aboutDetails.trim() : row.about_details;
+  const anonymous = !fullName && !patientIdentifier && !healthInsurance;
+
+  await pool.query(
+    `UPDATE patients
+    SET full_name = $1,
+      patient_identifier = $2,
+      health_insurance = $3,
+      anonymous = $4
+    WHERE id =
+    (
+      SELECT patient_id
+      FROM triage_sessions
+      WHERE session_id = $5
+    )`,
+    [fullName || null, patientIdentifier || null, healthInsurance || null, anonymous, sessionId]
+  );
+
+  await pool.query(
+    `UPDATE queue
+    SET about_details = $1
+    WHERE triage_session_id =
+    (
+      SELECT id
+      FROM triage_sessions
+      WHERE session_id = $2
+    )`,
+    [aboutDetails || null, sessionId]
+  );
+
+  return getPatient(sessionId);
 }
 
 
 
-function findEntry(sessionId)
+async function getPatient(sessionId)
 {
-  return queue.find(entry => entry.sessionId === sessionId);
+  const row = await findQueueRow(sessionId);
+
+  if (!row)
+  {
+    throw createError("Queue entry not found", 404);
+  }
+
+  const queuePosition = await getActiveQueuePosition(sessionId);
+
+  return serializeEntry(row, queuePosition);
 }
 
 
 
-function updatePatient(sessionId, updates)
+async function resolvePatient(sessionId, status)
 {
-  const entry = findEntry(sessionId);
+  const row = await findQueueRow(sessionId);
 
-  if (!entry)
+  if (!row)
   {
-    const error = new Error("Queue entry not found");
-
-    error.statusCode = 404;
-
-    throw error;
+    throw createError("Queue entry not found", 404);
   }
 
-  if (updates.patientId !== undefined)
-  {
-    entry.patientId = updates.patientId.trim();
-  }
+  await pool.query(
+    `UPDATE queue
+    SET status = $1
+    WHERE triage_session_id =
+    (
+      SELECT id
+      FROM triage_sessions
+      WHERE session_id = $2
+    )`,
+    [status, sessionId]
+  );
 
-  if (updates.healthInsurance !== undefined)
-  {
-    entry.healthInsurance = updates.healthInsurance.trim();
-  }
+  await pool.query(
+    `UPDATE triage_sessions
+    SET status = $1
+    WHERE session_id = $2`,
+    [status === "completed" ? "completed" : "cancelled", sessionId]
+  );
 
-  if (updates.aboutDetails !== undefined)
-  {
-    entry.aboutDetails = updates.aboutDetails.trim();
-  }
-
-  entry.anonymous = !entry.patientId && !entry.healthInsurance;
-
-  return serializeEntry(entry);
+  return getPatient(sessionId);
 }
 
 
 
-function getPatient(sessionId)
+async function startAssessing(sessionId)
 {
-  const entry = findEntry(sessionId);
+  const row = await findQueueRow(sessionId);
 
-  if (!entry)
+  if (!row)
   {
-    const error = new Error("Queue entry not found");
-
-    error.statusCode = 404;
-
-    throw error;
+    throw createError("Queue entry not found", 404);
   }
 
-  return serializeEntry(entry);
-}
+  await pool.query(
+    `UPDATE queue
+    SET status = $1
+    WHERE triage_session_id =
+    (
+      SELECT id
+      FROM triage_sessions
+      WHERE session_id = $2
+    )`,
+    ["assessing", sessionId]
+  );
 
-
-
-function resolvePatient(sessionId, status)
-{
-  const entry = findEntry(sessionId);
-
-  if (!entry)
-  {
-    const error = new Error("Queue entry not found");
-
-    error.statusCode = 404;
-
-    throw error;
-  }
-
-  entry.status = status;
-
-  return serializeEntry(entry);
-}
-
-
-
-function startAssessing(sessionId)
-{
-  const entry = findEntry(sessionId);
-
-  if (!entry)
-  {
-    const error = new Error("Queue entry not found");
-
-    error.statusCode = 404;
-
-    throw error;
-  }
-
-  entry.status = "assessing";
-
-  return serializeEntry(entry);
+  return getPatient(sessionId);
 }
 
 
@@ -242,13 +400,15 @@ function getPriorityLevels()
 
 
 
-function resetQueue()
+async function resetQueue()
 {
-  queue.length = 0;
-  sequence = 0;
+  await pool.query("DELETE FROM queue");
 }
 
-module.exports = {
+
+
+module.exports =
+{
   ACTIVE_STATUSES,
   PUBLIC_QUEUE_STATUSES,
   enqueuePatient,

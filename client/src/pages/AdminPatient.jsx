@@ -1,21 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import "../styles/admin.css"
+import { completeQueuePatient, getQueuePatient, rejectQueuePatient, startAssessingPatient, updateQueuePatient } from "../services/adminService"
+import { getStoredToken } from "../services/authService"
 import { getPriorityMeta } from "../utils/priority"
-
-const TOKEN_KEY = "triage-admin-token"
-
-
 
 function AdminPatient()
 {
   const navigate = useNavigate()
   const { sessionId } = useParams()
-  const token = localStorage.getItem(TOKEN_KEY) || ""
+  const token = getStoredToken()
   const [patient, setPatient] = useState(null)
   const [formState, setFormState] = useState(
   {
     aboutDetails: "",
+    fullName: "",
     healthInsurance: "",
     patientId: ""
   })
@@ -37,25 +36,13 @@ function AdminPatient()
       setLoading(true)
       setError("")
 
-      const response = await fetch(`/admin/queue/${sessionId}`,
-      {
-        headers:
-        {
-          Authorization: `Bearer ${token}`
-        }
-      })
-
-      const data = await response.json()
-
-      if (!response.ok)
-      {
-        throw new Error(data.error || "Failed to load patient")
-      }
+      const data = await getQueuePatient(token, sessionId)
 
       setPatient(data)
       setFormState(
       {
         aboutDetails: data.aboutDetails || "",
+        fullName: data.fullName || "",
         healthInsurance: data.healthInsurance || "",
         patientId: data.patientId || ""
       })
@@ -102,23 +89,7 @@ function AdminPatient()
       setLoading(true)
       setError("")
 
-      const response = await fetch(`/admin/queue/${sessionId}`,
-      {
-        method: "PATCH",
-        headers:
-        {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(formState)
-      })
-
-      const data = await response.json()
-
-      if (!response.ok)
-      {
-        throw new Error(data.error || "Failed to update patient")
-      }
+      const data = await updateQueuePatient(token, sessionId, formState)
 
       setPatient(data)
     }
@@ -141,20 +112,17 @@ function AdminPatient()
       setLoading(true)
       setError("")
 
-      const response = await fetch(`/admin/queue/${sessionId}/${action}`,
+      if (action === "assess")
       {
-        method: "POST",
-        headers:
-        {
-          Authorization: `Bearer ${token}`
-        }
-      })
-
-      const data = await response.json()
-
-      if (!response.ok)
+        await startAssessingPatient(token, sessionId)
+      }
+      else if (action === "complete")
       {
-        throw new Error(data.error || "Failed to update patient status")
+        await completeQueuePatient(token, sessionId)
+      }
+      else
+      {
+        await rejectQueuePatient(token, sessionId)
       }
 
       navigate("/admin")
@@ -187,6 +155,7 @@ function AdminPatient()
               <p className="question-label">{priorityMeta.level}</p>
               <h3>{priorityMeta.icon} {priorityMeta.level} - {priorityMeta.label}</h3>
               <p className="queue-session">Color reference: {priorityMeta.hex}</p>
+              <p className="queue-session">Full name: {patient.fullName || "Not provided"}</p>
               <p className="queue-session">Patient number: #{patient.patientNumber}</p>
               <p className="queue-session">Status: {patient.status}</p>
             </div>
@@ -198,6 +167,11 @@ function AdminPatient()
           </div>
 
           <div className="form-grid">
+            <label className="form-field">
+              <span>Full Name</span>
+              <input aria-label="Full Name" onChange={event => handleFieldChange("fullName", event.target.value)} type="text" value={formState.fullName} />
+            </label>
+
             <label className="form-field">
               <span>Patient ID</span>
               <input aria-label="Patient ID" onChange={event => handleFieldChange("patientId", event.target.value)} type="text" value={formState.patientId} />
@@ -220,6 +194,11 @@ function AdminPatient()
             </button>
             <Link className="text-button" to="/admin/audit">Audit Log</Link>
             <Link className="text-button" to="/settings">Settings</Link>
+            {patient.status === "waiting" && (
+              <button className="secondary-button" disabled={loading} onClick={() => handleAction("assess")} type="button">
+                Start Assessing
+              </button>
+            )}
             <button className="success-button" disabled={loading} onClick={() => handleAction("complete")} type="button">
               Completed
             </button>

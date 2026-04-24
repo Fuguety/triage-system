@@ -1,22 +1,15 @@
 const queueService = require("../services/queue.service");
 const auditService = require("../services/audit.service");
 
-exports.getQueue = (req, res) =>
-{
-  res.json(
-  {
-    hospital: req.user.hospitalName,
-    patients: queueService.getAdminQueue()
-  });
-};
-
-
-
-exports.getQueuePatient = (req, res) =>
+exports.getQueue = async (req, res) =>
 {
   try
   {
-    return res.json(queueService.getPatient(req.params.sessionId));
+    return res.json(
+    {
+      hospital: req.user.hospitalName,
+      patients: await queueService.getAdminQueue()
+    });
   }
   catch (error)
   {
@@ -26,19 +19,45 @@ exports.getQueuePatient = (req, res) =>
 
 
 
-exports.getAuditLog = (req, res) =>
+exports.getQueuePatient = async (req, res) =>
 {
-  res.json(
+  try
   {
-    entries: auditService.getAuditLog()
-  });
+    return res.json(await queueService.getPatient(req.params.sessionId));
+  }
+  catch (error)
+  {
+    return res.status(error.statusCode || 500).json({ error: error.message });
+  }
 };
 
 
 
-exports.updateQueuePatient = (req, res) =>
+exports.getAuditLog = async (req, res) =>
 {
-  const { patientId, healthInsurance, aboutDetails } = req.body || {};
+  try
+  {
+    return res.json(
+    {
+      entries: await auditService.getAuditLog()
+    });
+  }
+  catch (error)
+  {
+    return res.status(error.statusCode || 500).json({ error: error.message });
+  }
+};
+
+
+
+exports.updateQueuePatient = async (req, res) =>
+{
+  const { fullName, patientId, healthInsurance, aboutDetails } = req.body || {};
+
+  if (fullName !== undefined && typeof fullName !== "string")
+  {
+    return res.status(400).json({ error: "fullName must be a string" });
+  }
 
   if (patientId !== undefined && typeof patientId !== "string")
   {
@@ -57,14 +76,15 @@ exports.updateQueuePatient = (req, res) =>
 
   try
   {
-    const result = queueService.updatePatient(req.params.sessionId,
+    const result = await queueService.updatePatient(req.params.sessionId,
     {
+      fullName,
       patientId,
       healthInsurance,
       aboutDetails
     });
 
-    auditService.recordAction(
+    await auditService.recordAction(
     {
       action: "patient_details_edited",
       actorName: req.user.hospitalName,
@@ -72,6 +92,7 @@ exports.updateQueuePatient = (req, res) =>
       details:
       {
         aboutDetails: result.aboutDetails,
+        fullName: result.fullName,
         patientId: result.patientId,
         healthInsurance: result.healthInsurance
       },
@@ -88,13 +109,13 @@ exports.updateQueuePatient = (req, res) =>
 
 
 
-exports.startAssessingPatient = (req, res) =>
+exports.startAssessingPatient = async (req, res) =>
 {
   try
   {
-    const result = queueService.startAssessing(req.params.sessionId);
+    const result = await queueService.startAssessing(req.params.sessionId);
 
-    auditService.recordAction(
+    await auditService.recordAction(
     {
       action: "staff_accepted_patient",
       actorName: req.user.hospitalName,
@@ -112,13 +133,13 @@ exports.startAssessingPatient = (req, res) =>
 
 
 
-exports.completeQueuePatient = (req, res) =>
+exports.completeQueuePatient = async (req, res) =>
 {
   try
   {
-    const result = queueService.resolvePatient(req.params.sessionId, "completed");
+    const result = await queueService.resolvePatient(req.params.sessionId, "completed");
 
-    auditService.recordAction(
+    await auditService.recordAction(
     {
       action: "staff_completed_assessment",
       actorName: req.user.hospitalName,
@@ -136,13 +157,13 @@ exports.completeQueuePatient = (req, res) =>
 
 
 
-exports.rejectQueuePatient = (req, res) =>
+exports.rejectQueuePatient = async (req, res) =>
 {
   try
   {
-    const result = queueService.resolvePatient(req.params.sessionId, "rejected");
+    const result = await queueService.resolvePatient(req.params.sessionId, "rejected");
 
-    auditService.recordAction(
+    await auditService.recordAction(
     {
       action: "staff_rejected_patient",
       actorName: req.user.hospitalName,

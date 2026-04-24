@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import "../styles/queue.css"
+import { getPublicQueue } from "../services/triageService"
 import { getPriorityMeta } from "../utils/priority"
 
 
@@ -20,13 +21,7 @@ function Queue()
         setLoading(true)
         setError("")
 
-        const response = await fetch("/triage/queue")
-        const data = await response.json()
-
-        if (!response.ok)
-        {
-          throw new Error(data.error || "Failed to load queue")
-        }
+        const data = await getPublicQueue()
 
         setQueue(data.patients)
       }
@@ -75,7 +70,7 @@ function Queue()
                 <p className="queue-session">Color reference: {priorityMeta.hex}</p>
                 <p className="queue-session">Patient number: #{patient.patientNumber}</p>
                 <div className="queue-footer">
-                  <span className="status-badge status-tag">waiting</span>
+                  <span className="status-badge status-tag">{patient.status}</span>
                 </div>
               </div>
             )

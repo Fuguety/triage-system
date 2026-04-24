@@ -31,7 +31,7 @@ async function connectToDatabase()
 
 async function initializeDatabase()
 {
-  const schemaPath = path.join(__dirname, "init.sql");
+  const schemaPath = path.join(__dirname, "schema.sql");
   const schema = await fs.readFile(schemaPath, "utf8");
 
   await pool.query(schema);

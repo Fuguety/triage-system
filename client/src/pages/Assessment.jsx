@@ -1,12 +1,14 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
 import "../styles/assessment.css"
+import { answerQuestion, startTriage } from "../services/triageService"
 import { getPriorityMeta } from "../utils/priority"
 
 
 
 function Assessment()
 {
+  const [fullName, setFullName] = useState("")
   const [patientId, setPatientId] = useState("")
   const [healthInsurance, setHealthInsurance] = useState("")
   const [patientNumber, setPatientNumber] = useState("")
@@ -25,26 +27,12 @@ function Assessment()
       setError("")
       setResult(null)
 
-      const response = await fetch("/triage/start",
+      const data = await startTriage(
       {
-        method: "POST",
-        headers:
-        {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(
-        {
-          patientId: useAnonymous ? "" : patientId,
-          healthInsurance: useAnonymous ? "" : healthInsurance
-        })
+        fullName: useAnonymous ? "" : fullName,
+        patientId: useAnonymous ? "" : patientId,
+        healthInsurance: useAnonymous ? "" : healthInsurance
       })
-
-      const data = await response.json()
-
-      if (!response.ok)
-      {
-        throw new Error(data.error || "Failed to start assessment")
-      }
 
       setSessionId(data.sessionId)
       setPatientNumber(String(data.patientNumber))
@@ -69,26 +57,7 @@ function Assessment()
       setSubmitting(true)
       setError("")
 
-      const response = await fetch("/triage/answer",
-      {
-        method: "POST",
-        headers:
-        {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(
-        {
-          sessionId,
-          answerId
-        })
-      })
-
-      const data = await response.json()
-
-      if (!response.ok)
-      {
-        throw new Error(data.error || "Failed to submit answer")
-      }
+      const data = await answerQuestion(sessionId, answerId)
 
       if (data.done)
       {
@@ -118,6 +87,7 @@ function Assessment()
     setResult(null)
     setQuestion(null)
     setSessionId("")
+    setFullName("")
     setPatientId("")
     setHealthInsurance("")
     setPatientNumber("")
@@ -147,9 +117,19 @@ function Assessment()
           <p className="question-label">Patient intake</p>
           <h3>Enter patient details or continue anonymously</h3>
           <p className="section-copy">
-            Both fields are optional. If skipped, the system will assign an anonymous patient number.
+            All fields are optional. If skipped, the system will assign an anonymous patient number.
           </p>
           <div className="form-grid">
+            <label className="form-field">
+              <span>Full Name</span>
+              <input
+                aria-label="Full Name"
+                onChange={event => setFullName(event.target.value)}
+                placeholder="Optional full name"
+                type="text"
+                value={fullName}
+              />
+            </label>
             <label className="form-field">
               <span>Patient ID</span>
               <input

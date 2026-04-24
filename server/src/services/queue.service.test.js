@@ -1,89 +1,130 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
+const db = require("../db/database");
 const queueService = require("./queue.service");
+const triageService = require("./triage.service");
 
-test.beforeEach(() =>
+test.before(async () =>
 {
-  queueService.resetQueue();
+  await db.initializeDatabase();
 });
 
-test("orders patients by priority", () =>
-{
-  queueService.enqueuePatient("patient-low", "NON_URGENT");
-  queueService.enqueuePatient("patient-high", "EMERGENT");
-  queueService.enqueuePatient("patient-mid", "URGENT");
 
-  const queue = queueService.getQueue();
+
+
+test.beforeEach(async () =>
+{
+  await triageService.resetTriageSessions();
+});
+
+
+
+test.after(async () =>
+{
+  await db.closeDatabase();
+});
+
+
+
+async function createCompletedSession(priority)
+{
+  const session = await triageService.startTriage();
+
+  await queueService.enqueuePatient(session.sessionId, priority);
+
+  return session;
+}
+
+
+
+test("orders patients by priority", async () =>
+{
+  const low = await createCompletedSession("NON_URGENT");
+  const high = await createCompletedSession("EMERGENT");
+  const mid = await createCompletedSession("URGENT");
+
+  const queue = await queueService.getQueue();
 
   assert.deepEqual(queue.map(entry => entry.sessionId),
   [
-    "patient-high",
-    "patient-mid",
-    "patient-low"
+    high.sessionId,
+    mid.sessionId,
+    low.sessionId
   ]);
 });
 
-test("keeps first come first served inside the same priority", () =>
+
+
+
+test("keeps first come first served inside the same priority", async () =>
 {
-  queueService.enqueuePatient("patient-1", "LESS_URGENT");
-  queueService.enqueuePatient("patient-2", "LESS_URGENT");
+  const first = await createCompletedSession("LESS_URGENT");
+  const second = await createCompletedSession("LESS_URGENT");
 
-  const queue = queueService.getQueue();
+  const queue = await queueService.getQueue();
 
-  assert.equal(queue[0].sessionId, "patient-1");
-  assert.equal(queue[1].sessionId, "patient-2");
+  assert.equal(queue[0].sessionId, first.sessionId);
+  assert.equal(queue[1].sessionId, second.sessionId);
 });
 
-test("returns the correct queue position for a new patient", () =>
-{
-  queueService.enqueuePatient("patient-1", "NON_URGENT");
-  queueService.enqueuePatient("patient-2", "URGENT");
 
-  const result = queueService.enqueuePatient("patient-3", "EMERGENT");
+
+
+test("returns the correct queue position for a new patient", async () =>
+{
+  await createCompletedSession("NON_URGENT");
+  await createCompletedSession("URGENT");
+  const patient = await triageService.startTriage();
+
+  const result = await queueService.enqueuePatient(patient.sessionId, "EMERGENT");
 
   assert.equal(result.queuePosition, 1);
 });
 
-test("updates patient details and sitrep", () =>
-{
-  queueService.enqueuePatient("patient-1", "URGENT",
-  {
-    patientNumber: 1000
-  });
 
-  const updatedPatient = queueService.updatePatient("patient-1",
+
+
+test("updates patient details and sitrep", async () =>
+{
+  const patient = await createCompletedSession("URGENT");
+
+  const updatedPatient = await queueService.updatePatient(patient.sessionId,
   {
+    fullName: "Ana Garcia",
     patientId: "ID-77",
     healthInsurance: "AOK",
     aboutDetails: "Patient waiting for examination"
   });
 
+  assert.equal(updatedPatient.fullName, "Ana Garcia");
   assert.equal(updatedPatient.patientId, "ID-77");
   assert.equal(updatedPatient.healthInsurance, "AOK");
   assert.equal(updatedPatient.aboutDetails, "Patient waiting for examination");
 });
 
-test("removes completed patients from the active queue", () =>
+
+
+
+test("removes completed patients from the active queue", async () =>
 {
-  queueService.enqueuePatient("patient-1", "URGENT",
-  {
-    patientNumber: 1000
-  });
+  const patient = await createCompletedSession("URGENT");
 
-  queueService.resolvePatient("patient-1", "completed");
+  await queueService.resolvePatient(patient.sessionId, "completed");
 
-  assert.equal(queueService.getQueue().length, 0);
+  const queue = await queueService.getQueue();
+
+  assert.equal(queue.length, 0);
 });
 
-test("marks patient as assessing", () =>
-{
-  queueService.enqueuePatient("patient-1", "URGENT",
-  {
-    patientNumber: 1000
-  });
 
-  const patient = queueService.startAssessing("patient-1");
+
+
+test("marks patient as assessing", async () =>
+{
+  const session = await createCompletedSession("URGENT");
+
+  const patient = await queueService.startAssessing(session.sessionId);
 
   assert.equal(patient.status, "assessing");
 });

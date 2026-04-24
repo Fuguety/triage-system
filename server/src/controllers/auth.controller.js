@@ -41,7 +41,7 @@ exports.registerHospital = async (req, res) =>
   {
     const result = await authService.registerHospital(req.body.name, req.body.email, req.body.password);
 
-    auditService.recordAction(
+    await auditService.recordAction(
     {
       action: "hospital_registered",
       actorName: result.hospital.name,
@@ -69,7 +69,7 @@ exports.loginHospital = async (req, res) =>
   {
     const result = await authService.loginHospital(req.body.email, req.body.password);
 
-    auditService.recordAction(
+    await auditService.recordAction(
     {
       action: "hospital_logged_in",
       actorName: result.hospital.name,

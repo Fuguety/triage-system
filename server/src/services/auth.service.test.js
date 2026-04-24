@@ -1,11 +1,29 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
+const db = require("../db/database");
 const authService = require("./auth.service");
 
-test.beforeEach(() =>
+
+
+
+test.before(async () =>
 {
-  authService.resetHospitals();
+  await db.initializeDatabase();
+});
+
+
+
+test.beforeEach(async () =>
+{
+  await authService.resetHospitals();
+});
+
+
+
+test.after(async () =>
+{
+  await db.closeDatabase();
 });
 
 test("registers and logs in a hospital", async () =>

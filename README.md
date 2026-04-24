@@ -92,8 +92,8 @@ It is responsible for:
 ## Database Files
 
 - Docker config: [docker-compose.yml](/c:/Users/lucze/UNI/THESIS/triage-system/docker-compose.yml)
-- DB connection: [server/src/db/db.js](/c:/Users/lucze/UNI/THESIS/triage-system/server/src/db/db.js)
-- Schema: [server/src/db/init.sql](/c:/Users/lucze/UNI/THESIS/triage-system/server/src/db/init.sql)
+- DB connection: [server/src/db/database.js](/c:/Users/lucze/UNI/THESIS/triage-system/server/src/db/database.js)
+- Schema: [server/src/db/schema.sql](/c:/Users/lucze/UNI/THESIS/triage-system/server/src/db/schema.sql)
 
 ## SQL Tables
 
@@ -103,6 +103,7 @@ The PostgreSQL schema currently creates:
 - `triage_sessions`
 - `queue`
 - `audit_logs`
+- `hospitals`
 
 ## API Routes
 
@@ -172,7 +173,7 @@ http://localhost:5173
 
 - triage questions are still hardcoded
 - triage logic is still rule-based placeholder logic
-- PostgreSQL schema exists, but most runtime app data is still managed in memory
+- Triage, queue, audit, and hospital authentication data now use PostgreSQL persistence
 - no Python AI model yet
 - no production deployment yet
 

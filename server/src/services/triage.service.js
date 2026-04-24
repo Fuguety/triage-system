@@ -1,6 +1,4 @@
-const { v4: uuidv4 } = require("uuid");
-
-const sessions = new Map();
+const { pool } = require("../db/database");
 
 const questions =
 {
@@ -55,7 +53,7 @@ const priorityMap =
   END_NON_URGENT: "NON_URGENT"
 };
 
-let patientNumberSequence = 1000;
+
 
 function createError(message, statusCode)
 {
@@ -66,49 +64,110 @@ function createError(message, statusCode)
   return error;
 }
 
-function startTriage(patientDetails = {})
+
+
+function buildSymptomsSummary(existingSummary, question, answer)
 {
-  const sessionId = uuidv4();
-  const patientId = typeof patientDetails.patientId === "string" ? patientDetails.patientId.trim() : "";
-  const healthInsurance = typeof patientDetails.healthInsurance === "string" ? patientDetails.healthInsurance.trim() : "";
-  const patientNumber = patientNumberSequence++;
-  const anonymous = !patientId && !healthInsurance;
+  const entry = `${question.text} ${answer.label}`;
 
-  sessions.set(sessionId,
+  if (!existingSummary)
   {
-    anonymous,
-    currentQuestion: "q1",
-    completed: false,
-    healthInsurance,
-    patientId,
-    patientNumber
-  });
+    return entry;
+  }
 
-  return {
-    anonymous,
-    patientNumber,
-    patientId,
-    healthInsurance,
-    sessionId,
-    question: questions.q1
-  };
+  return `${existingSummary}\n${entry}`;
 }
 
-function answerQuestion(sessionId, answerId)
+
+
+async function startTriage(patientDetails = {})
 {
-  const session = sessions.get(sessionId);
+  const fullName = typeof patientDetails.fullName === "string" ? patientDetails.fullName.trim() : "";
+  const patientIdentifier = typeof patientDetails.patientId === "string" ? patientDetails.patientId.trim() : "";
+  const healthInsurance = typeof patientDetails.healthInsurance === "string" ? patientDetails.healthInsurance.trim() : "";
+  const anonymous = !fullName && !patientIdentifier && !healthInsurance;
+  const client = await pool.connect();
+
+  try
+  {
+    await client.query("BEGIN");
+
+    const patientResult = await client.query(
+      `INSERT INTO patients
+      (full_name, patient_identifier, health_insurance, anonymous)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, patient_number`,
+      [fullName || null, patientIdentifier || null, healthInsurance || null, anonymous]
+    );
+
+    const patient = patientResult.rows[0];
+    const sessionResult = await client.query(
+      `INSERT INTO triage_sessions
+      (patient_id, current_question, status)
+      VALUES ($1, $2, $3)
+      RETURNING session_id`,
+      [patient.id, "q1", "active"]
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      anonymous,
+      fullName,
+      patientNumber: Number(patient.patient_number),
+      patientId: patientIdentifier,
+      healthInsurance,
+      sessionId: sessionResult.rows[0].session_id,
+      question: questions.q1
+    };
+  }
+  catch (error)
+  {
+    await client.query("ROLLBACK");
+
+    throw error;
+  }
+  finally
+  {
+    client.release();
+  }
+}
+
+
+
+async function answerQuestion(sessionId, answerId)
+{
+  const sessionResult = await pool.query(
+    `SELECT
+      triage_sessions.id,
+      triage_sessions.session_id,
+      triage_sessions.current_question,
+      triage_sessions.status,
+      triage_sessions.symptoms_summary,
+      patients.full_name,
+      patients.patient_identifier,
+      patients.health_insurance,
+      patients.anonymous,
+      patients.patient_number
+    FROM triage_sessions
+    JOIN patients ON patients.id = triage_sessions.patient_id
+    WHERE triage_sessions.session_id = $1`,
+    [sessionId]
+  );
+
+  const session = sessionResult.rows[0];
 
   if (!session)
   {
     throw createError("Session not found", 404);
   }
 
-  if (session.completed)
+  if (session.status === "completed")
   {
     throw createError("Session already completed", 409);
   }
 
-  const currentQuestion = questions[session.currentQuestion];
+  const currentQuestion = questions[session.current_question];
 
   if (!currentQuestion)
   {
@@ -122,25 +181,41 @@ function answerQuestion(sessionId, answerId)
     throw createError("Invalid answer", 400);
   }
 
+  const symptomsSummary = buildSymptomsSummary(session.symptoms_summary, currentQuestion, selectedAnswer);
+
   if (selectedAnswer.next.startsWith("END"))
   {
     const priority = priorityMap[selectedAnswer.next];
 
-    session.completed = true;
-    session.priority = priority;
+    await pool.query(
+      `UPDATE triage_sessions
+      SET priority_level = $1,
+        status = $2,
+        symptoms_summary = $3,
+        completed_at = CURRENT_TIMESTAMP
+      WHERE session_id = $4`,
+      [priority, "completed", symptomsSummary, sessionId]
+    );
 
     return {
       done: true,
       anonymous: session.anonymous,
-      healthInsurance: session.healthInsurance,
-      patientId: session.patientId,
-      patientNumber: session.patientNumber,
+      fullName: session.full_name || "",
+      healthInsurance: session.health_insurance || "",
+      patientId: session.patient_identifier || "",
+      patientNumber: Number(session.patient_number),
       sessionId,
       priority
     };
   }
 
-  session.currentQuestion = selectedAnswer.next;
+  await pool.query(
+    `UPDATE triage_sessions
+    SET current_question = $1,
+      symptoms_summary = $2
+    WHERE session_id = $3`,
+    [selectedAnswer.next, symptomsSummary, sessionId]
+  );
 
   return {
     done: false,
@@ -148,13 +223,21 @@ function answerQuestion(sessionId, answerId)
   };
 }
 
-function resetTriageSessions()
+
+
+async function resetTriageSessions()
 {
-  sessions.clear();
-  patientNumberSequence = 1000;
+  await pool.query("DELETE FROM queue");
+  await pool.query("DELETE FROM audit_logs");
+  await pool.query("DELETE FROM triage_sessions");
+  await pool.query("DELETE FROM patients");
+  await pool.query("ALTER SEQUENCE patient_number_sequence RESTART WITH 1000");
 }
 
-module.exports = {
+
+
+module.exports =
+{
   answerQuestion,
   resetTriageSessions,
   startTriage

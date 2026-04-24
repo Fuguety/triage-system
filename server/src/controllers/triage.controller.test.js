@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
+const db = require("../db/database");
 const queueService = require("../services/queue.service");
 const triageService = require("../services/triage.service");
 const triageController = require("./triage.controller");
@@ -25,17 +26,33 @@ function createResponse()
   };
 }
 
-test.beforeEach(() =>
+test.before(async () =>
 {
-  queueService.resetQueue();
-  triageService.resetTriageSessions();
+  await db.initializeDatabase();
 });
 
-test("returns 400 when sessionId is missing", () =>
+
+
+
+test.beforeEach(async () =>
+{
+  await triageService.resetTriageSessions();
+});
+
+
+
+test.after(async () =>
+{
+  await db.closeDatabase();
+});
+
+
+
+test("returns 400 when sessionId is missing", async () =>
 {
   const response = createResponse();
 
-  triageController.answerQuestion(
+  await triageController.answerQuestion(
   {
     body:
     {
@@ -50,14 +67,15 @@ test("returns 400 when sessionId is missing", () =>
   });
 });
 
-test("accepts optional intake details on start", () =>
+test("accepts optional intake details on start", async () =>
 {
   const response = createResponse();
 
-  triageController.startTriage(
+  await triageController.startTriage(
   {
     body:
     {
+      fullName: "Ana Garcia",
       patientId: "123456",
       healthInsurance: "AOK"
     }
@@ -65,14 +83,34 @@ test("accepts optional intake details on start", () =>
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.payload.patientNumber, 1000);
+  assert.equal(response.payload.fullName, "Ana Garcia");
   assert.equal(response.payload.anonymous, false);
 });
 
-test("returns 400 when patientId is not a string", () =>
+test("returns 400 when fullName is not a string", async () =>
 {
   const response = createResponse();
 
-  triageController.startTriage(
+  await triageController.startTriage(
+  {
+    body:
+    {
+      fullName: 123
+    }
+  }, response);
+
+  assert.equal(response.statusCode, 400);
+  assert.deepEqual(response.payload,
+  {
+    error: "fullName must be a string"
+  });
+});
+
+test("returns 400 when patientId is not a string", async () =>
+{
+  const response = createResponse();
+
+  await triageController.startTriage(
   {
     body:
     {
@@ -87,11 +125,11 @@ test("returns 400 when patientId is not a string", () =>
   });
 });
 
-test("returns 400 when answerId is missing", () =>
+test("returns 400 when answerId is missing", async () =>
 {
   const response = createResponse();
 
-  triageController.answerQuestion(
+  await triageController.answerQuestion(
   {
     body:
     {
@@ -106,12 +144,12 @@ test("returns 400 when answerId is missing", () =>
   });
 });
 
-test("returns queue data from the controller", () =>
+test("returns queue data from the controller", async () =>
 {
-  const session = triageService.startTriage();
-  const result = triageService.answerQuestion(session.sessionId, "yes");
+  const session = await triageService.startTriage();
+  const result = await triageService.answerQuestion(session.sessionId, "yes");
 
-  queueService.enqueuePatient(session.sessionId, "RESUSCITATION",
+  await queueService.enqueuePatient(session.sessionId, "RESUSCITATION",
   {
     anonymous: true,
     healthInsurance: "",
@@ -121,7 +159,7 @@ test("returns queue data from the controller", () =>
 
   const response = createResponse();
 
-  triageController.getQueue({}, response);
+  await triageController.getQueue({}, response);
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.payload.patients.length, 1);
