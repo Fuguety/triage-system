@@ -1,0 +1,28 @@
+{
+  "name": "triage-system",
+  "version": "1.0.0",
+  "description": "Web-based medical triage support system developed for a university thesis.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "db": "docker compose up -d",
+    "start": "npm run db && npm run dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fuguety/triage-system.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Fuguety/triage-system/issues"
+  },
+  "homepage": "https://github.com/Fuguety/triage-system#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

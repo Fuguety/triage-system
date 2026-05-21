@@ -41,6 +41,8 @@ function Home()
     setSiteProfile(nextProfile)
   }
 
+
+
   function saveSetup(event)
   {
     event.preventDefault()
@@ -69,7 +71,69 @@ function Home()
     setHospitalPhone("")
   }
 
-  if (!siteProfile)
+
+
+  function renderSetupForm()
+  {
+    return (
+      <form className="form-grid setup-form" onSubmit={saveSetup}>
+        <label className="form-field">
+          <span>Hospital name</span>
+          <input
+            aria-label="Hospital name"
+            onChange={event => setHospitalName(event.target.value)}
+            required
+            type="text"
+            value={hospitalName}
+          />
+        </label>
+
+        <label className="form-field">
+          <span>Unit or department</span>
+          <input
+            aria-label="Unit or department"
+            onChange={event => setHospitalUnit(event.target.value)}
+            placeholder="Emergency, urgent care, reception..."
+            type="text"
+            value={hospitalUnit}
+          />
+        </label>
+
+        <label className="form-field">
+          <span>Address</span>
+          <input
+            aria-label="Hospital address"
+            onChange={event => setHospitalAddress(event.target.value)}
+            type="text"
+            value={hospitalAddress}
+          />
+        </label>
+
+        <label className="form-field">
+          <span>Phone</span>
+          <input
+            aria-label="Hospital phone"
+            onChange={event => setHospitalPhone(event.target.value)}
+            type="text"
+            value={hospitalPhone}
+          />
+        </label>
+
+        <div className="setup-actions">
+          <button aria-label="Use debug hospital setup" className="secondary-button" onClick={applyDebugSetup} type="button">
+            Use Debug Setup
+          </button>
+          <button aria-label="Save hospital setup and continue" type="submit">
+            Save And Continue
+          </button>
+        </div>
+      </form>
+    )
+  }
+
+
+
+  function renderSetupPage()
   {
     return (
       <div className="shell">
@@ -83,11 +147,7 @@ function Home()
         <div className="container setup-card">
           <div className="setup-topbar">
             <p className="question-label">Local kiosk configuration</p>
-            <Link
-              aria-label="Open staff login"
-              className="staff-access-soft"
-              to="/admin"
-            >
+            <Link aria-label="Open staff login" className="staff-access-soft" to="/admin">
               Staff Login
             </Link>
           </div>
@@ -101,114 +161,88 @@ function Home()
               </p>
             </div>
 
-            <form className="form-grid setup-form" onSubmit={saveSetup}>
-              <label className="form-field">
-                <span>Hospital name</span>
-                <input
-                  aria-label="Hospital name"
-                  onChange={event => setHospitalName(event.target.value)}
-                  required
-                  type="text"
-                  value={hospitalName}
-                />
-              </label>
-
-              <label className="form-field">
-                <span>Unit or department</span>
-                <input
-                  aria-label="Unit or department"
-                  onChange={event => setHospitalUnit(event.target.value)}
-                  placeholder="Emergency, urgent care, reception..."
-                  type="text"
-                  value={hospitalUnit}
-                />
-              </label>
-
-              <label className="form-field">
-                <span>Address</span>
-                <input
-                  aria-label="Hospital address"
-                  onChange={event => setHospitalAddress(event.target.value)}
-                  type="text"
-                  value={hospitalAddress}
-                />
-              </label>
-
-              <label className="form-field">
-                <span>Phone</span>
-                <input
-                  aria-label="Hospital phone"
-                  onChange={event => setHospitalPhone(event.target.value)}
-                  type="text"
-                  value={hospitalPhone}
-                />
-              </label>
-
-              <div className="setup-actions">
-                <button aria-label="Use debug hospital setup" className="secondary-button" onClick={applyDebugSetup} type="button">
-                  Use Debug Setup
-                </button>
-                <button aria-label="Save hospital setup and continue" type="submit">
-                  Save And Continue
-                </button>
-              </div>
-            </form>
+            {renderSetupForm()}
           </div>
         </div>
       </div>
     )
   }
 
-  return (
-    <div className="shell">
-      <section className="hero-card kiosk-hero">
-        <div className="hero-copy">
-          <p className="eyebrow">{siteProfile.hospitalUnit || "Triage station"}</p>
-          <h1>{siteProfile.hospitalName}</h1>
-          <p className="hero-text">
-            Start a new triage questionnaire or check the queue position.
-          </p>
 
-          <div className="hero-actions">
-            <button aria-label="Start triage questionnaire" onClick={() => navigate("/assessment")}>
-              Start Triage Questionnaire
-            </button>
-            <button aria-label="Check queue position" className="secondary-button" onClick={() => navigate("/queue")}>
-              Check Queue Position
-            </button>
-          </div>
+
+  function renderHeroPanel()
+  {
+    return (
+      <div className="hero-panel">
+        <div className="metric-card">
+          <span className="metric-label">Address</span>
+          <strong>{siteProfile.hospitalAddress || "Not provided"}</strong>
         </div>
 
-        <div className="hero-panel">
-          <div className="metric-card">
-            <span className="metric-label">Address</span>
-            <strong>{siteProfile.hospitalAddress || "Not provided"}</strong>
-          </div>
-          <div className="metric-card">
-            <span className="metric-label">Phone</span>
-            <strong>{siteProfile.hospitalPhone || "Not provided"}</strong>
-          </div>
-          <div className="metric-card">
-            <span className="metric-label">Station status</span>
-            <strong>Ready for intake</strong>
-          </div>
+        <div className="metric-card">
+          <span className="metric-label">Phone</span>
+          <strong>{siteProfile.hospitalPhone || "Not provided"}</strong>
         </div>
-      </section>
 
-      <section className="quick-links">
-        <button aria-label="Edit hospital setup" className="secondary-button" onClick={resetSetup} type="button">
-          Edit Hospital Setup
-        </button>
-        <button aria-label="Open visual settings" className="secondary-button" onClick={() => navigate("/settings")} type="button">
-          Visual Settings
-        </button>
-      </section>
+        <div className="metric-card">
+          <span className="metric-label">Station status</span>
+          <strong>Ready for intake</strong>
+        </div>
+      </div>
+    )
+  }
 
-      <section className="staff-access">
-        <Link aria-label="Open staff login" className="staff-access-link" to="/admin">Staff access</Link>
-      </section>
-    </div>
-  )
+
+
+  function renderHomePage()
+  {
+    return (
+      <div className="shell">
+        <section className="hero-card kiosk-hero">
+          <div className="hero-copy">
+            <p className="eyebrow">{siteProfile.hospitalUnit || "Triage station"}</p>
+            <h1>{siteProfile.hospitalName}</h1>
+            <p className="hero-text">
+              Start a new triage questionnaire or check the queue position.
+            </p>
+
+            <div className="hero-actions">
+              <button aria-label="Start triage questionnaire" onClick={() => navigate("/assessment")}>
+                Start Triage Questionnaire
+              </button>
+              <button aria-label="Check queue position" className="secondary-button" onClick={() => navigate("/queue")}>
+                Check Queue Position
+              </button>
+            </div>
+          </div>
+
+          {renderHeroPanel()}
+        </section>
+
+        <section className="quick-links">
+          <button aria-label="Edit hospital setup" className="secondary-button" onClick={resetSetup} type="button">
+            Edit Hospital Setup
+          </button>
+          <button aria-label="Open visual settings" className="secondary-button" onClick={() => navigate("/settings")} type="button">
+            Visual Settings
+          </button>
+        </section>
+
+        <section className="staff-access">
+          <Link aria-label="Open staff login" className="staff-access-link" to="/admin">Staff access</Link>
+        </section>
+      </div>
+    )
+  }
+
+
+
+  if (!siteProfile)
+  {
+    return renderSetupPage()
+  }
+
+  return renderHomePage()
 }
 
 export default Home

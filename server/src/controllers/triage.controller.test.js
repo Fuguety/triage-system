@@ -147,6 +147,13 @@ test("returns 400 when answerId is missing", async () =>
 test("returns queue data from the controller", async () =>
 {
   const session = await triageService.startTriage();
+
+  await triageService.answerQuestion(session.sessionId, "young_adult");
+  await triageService.answerQuestion(session.sessionId, "fever");
+  await triageService.answerQuestion(session.sessionId, "yes");
+  await triageService.answerQuestion(session.sessionId, "none");
+  await triageService.answerQuestion(session.sessionId, "no");
+
   const result = await triageService.answerQuestion(session.sessionId, "yes");
 
   await queueService.enqueuePatient(session.sessionId, "RESUSCITATION",

@@ -120,6 +120,20 @@ button:hover
   background-color: #D9E3EE;
 }
 
+.text-button:focus-visible,
+.back-link:focus-visible
+{
+  outline: 3px solid #0B3D70;
+  outline-offset: 3px;
+}
+
+.disabled-link
+{
+  cursor: not-allowed;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
 .success-button
 {
   background-color: #388E3C;
@@ -150,11 +164,27 @@ button:disabled
 
 .back-link
 {
-  display: inline-block;
-  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 20px;
+  border: 1px solid rgba(25, 118, 210, 0.22);
+  border-radius: 999px;
+  background: var(--surface-strong);
+  color: #125EA2;
   text-decoration: none;
   font-weight: 700;
   font-size: 16px;
+  box-shadow: 0 8px 18px rgba(12, 28, 45, 0.08);
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.back-link:hover
+{
+  background: #EAF3FD;
+  box-shadow: 0 12px 24px rgba(25, 118, 210, 0.16);
+  transform: translateY(-1px);
 }
 
 .assessment-panel
@@ -297,14 +327,14 @@ h3
 .queue-list
 {
   display: grid;
-  gap: 18px;
-  margin-top: 24px;
+  gap: 22px;
+  margin-top: 28px;
   text-align: left;
 }
 
 .queue-card
 {
-  padding: 24px;
+  padding: 28px;
   border: 1px solid rgba(217, 225, 232, 0.8);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.88);
@@ -350,16 +380,18 @@ h3
 {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 24px;
   align-items: flex-start;
 }
 
 .admin-actions
 {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   flex-wrap: wrap;
-  margin-top: 20px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
 }
 
 .admin-header
@@ -396,7 +428,7 @@ h3
 
 .queue-session
 {
-  margin-bottom: 0;
+  margin: 8px 0 0;
   color: var(--muted);
   font-size: 14px;
   word-break: break-all;

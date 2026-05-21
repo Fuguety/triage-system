@@ -5,6 +5,10 @@ import { completeQueuePatient, getQueuePatient, rejectQueuePatient, startAssessi
 import { getStoredToken } from "../services/authService"
 import { getPriorityMeta } from "../utils/priority"
 
+const PRIORITY_OPTIONS = ["RESUSCITATION", "EMERGENT", "URGENT", "LESS_URGENT", "NON_URGENT"]
+
+
+
 function AdminPatient()
 {
   const navigate = useNavigate()
@@ -16,10 +20,12 @@ function AdminPatient()
     aboutDetails: "",
     fullName: "",
     healthInsurance: "",
-    patientId: ""
+    patientId: "",
+    priorityLevel: ""
   })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [showCompleteModal, setShowCompleteModal] = useState(false)
   const [showRejectModal, setShowRejectModal] = useState(false)
 
   const priorityMeta = useMemo(() =>
@@ -44,7 +50,8 @@ function AdminPatient()
         aboutDetails: data.aboutDetails || "",
         fullName: data.fullName || "",
         healthInsurance: data.healthInsurance || "",
-        patientId: data.patientId || ""
+        patientId: data.patientId || "",
+        priorityLevel: data.priority || ""
       })
     }
     catch (requestError)
@@ -134,10 +141,204 @@ function AdminPatient()
     }
   }
 
+
+
+  function renderPrioritySelect()
+  {
+    if (patient.status !== "assessing")
+    {
+      return null
+    }
+
+    return (
+      <label className="form-field priority-card-field">
+        <span>Adjust priority if needed</span>
+        <select
+          aria-label="Adjust priority if needed"
+          className="priority-select"
+          onChange={event => handleFieldChange("priorityLevel", event.target.value)}
+          style=
+          {{
+            borderColor: getPriorityMeta(formState.priorityLevel).hex,
+            color: getPriorityMeta(formState.priorityLevel).hex
+          }}
+          value={formState.priorityLevel}
+        >
+          {PRIORITY_OPTIONS.map(priority =>
+          {
+            const optionPriorityMeta = getPriorityMeta(priority)
+
+            return (
+              <option key={priority} style={{ color: optionPriorityMeta.hex }} value={priority}>
+                {priority}
+              </option>
+            )
+          })}
+        </select>
+      </label>
+    )
+  }
+
+
+
+  function renderPatientHeader()
+  {
+    return (
+      <div className="admin-card-top">
+        <div>
+          <p className="question-label">{priorityMeta.level}</p>
+          <h3>{priorityMeta.icon} {priorityMeta.level} - {priorityMeta.label}</h3>
+          <p className="queue-session">Full name: {patient.fullName || "Not provided"}</p>
+          <p className="queue-session">Patient number: #{patient.patientNumber}</p>
+          <p className="queue-session">Status: {patient.status}</p>
+        </div>
+
+        <div className="status-stack">
+          <div className="status-badge">{patient.anonymous ? "Anonymous" : "Identified"}</div>
+          <div className="status-badge status-tag">{patient.status}</div>
+          {renderPrioritySelect()}
+        </div>
+      </div>
+    )
+  }
+
+
+
+  function renderPatientForm()
+  {
+    return (
+      <div className="form-grid">
+        <label className="form-field">
+          <span>Full Name</span>
+          <input aria-label="Full Name" onChange={event => handleFieldChange("fullName", event.target.value)} type="text" value={formState.fullName} />
+        </label>
+
+        <label className="form-field">
+          <span>Patient ID</span>
+          <input aria-label="Patient ID" onChange={event => handleFieldChange("patientId", event.target.value)} type="text" value={formState.patientId} />
+        </label>
+
+        <label className="form-field">
+          <span>Health insurance</span>
+          <input aria-label="Health insurance" onChange={event => handleFieldChange("healthInsurance", event.target.value)} type="text" value={formState.healthInsurance} />
+        </label>
+
+        <label className="form-field details-field">
+          <span>About / Details</span>
+          <textarea aria-label="About and details" className="sitrep-input" onChange={event => handleFieldChange("aboutDetails", event.target.value)} value={formState.aboutDetails} />
+        </label>
+      </div>
+    )
+  }
+
+
+
+  function renderPatientActions()
+  {
+    return (
+      <div className="admin-actions">
+        <button disabled={loading} onClick={savePatient} type="button">
+          Save Changes
+        </button>
+
+        {patient.status === "waiting" && (
+          <button className="secondary-button" disabled={loading} onClick={() => handleAction("assess")} type="button">
+            Start Assessing
+          </button>
+        )}
+
+        <button className="success-button" disabled={loading} onClick={() => setShowCompleteModal(true)} type="button">
+          Complete
+        </button>
+        <button className="danger-button" disabled={loading} onClick={() => setShowRejectModal(true)} type="button">
+          Reject
+        </button>
+      </div>
+    )
+  }
+
+
+
+  function renderPatientCard()
+  {
+    if (!patient || !priorityMeta)
+    {
+      return null
+    }
+
+    return (
+      <div className={`container assessment-panel admin-card doctor-card ${priorityMeta.colorClass}`}>
+        {renderPatientHeader()}
+        {renderPatientForm()}
+        {renderPatientActions()}
+      </div>
+    )
+  }
+
+
+
+  function renderCompleteModal()
+  {
+    if (!showCompleteModal)
+    {
+      return null
+    }
+
+    return (
+      <div aria-modal="true" className="modal-backdrop" role="dialog">
+        <div className="modal-card">
+          <p className="question-label">Confirm completion</p>
+          <h3>Are you sure you want to mark this patient as complete?</h3>
+
+          <div className="admin-actions">
+            <button className="secondary-button" onClick={() => setShowCompleteModal(false)} type="button">
+              Cancel
+            </button>
+            <button className="success-button" onClick={() => handleAction("complete")} type="button">
+              Confirm Complete
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+
+
+  function renderRejectModal()
+  {
+    if (!showRejectModal)
+    {
+      return null
+    }
+
+    return (
+      <div aria-modal="true" className="modal-backdrop" role="dialog">
+        <div className="modal-card">
+          <p className="question-label">Confirm rejection</p>
+          <h3>Reject patient details?</h3>
+          <p className="modal-copy">This will move the patient to rejected and close the case.</p>
+
+          <div className="admin-actions">
+            <button className="secondary-button" onClick={() => setShowRejectModal(false)} type="button">
+              Cancel
+            </button>
+            <button className="danger-button" onClick={() => handleAction("reject")} type="button">
+              Yes, Reject
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+
+
   return (
     <div className="shell">
       <div className="page-header">
-        <Link className="back-link" to="/admin">Back To Queue</Link>
+        <Link className="back-link" to="/admin">{"\u2190 Back"}</Link>
+
         <div>
           <p className="eyebrow">Doctor workspace</p>
           <h2>Assessment Workspace</h2>
@@ -148,84 +349,9 @@ function AdminPatient()
       {!token && <p className="status error">Login to open this case.</p>}
       {loading && !patient && <p>Loading patient...</p>}
 
-      {patient && priorityMeta && (
-        <div className={`container assessment-panel admin-card doctor-card ${priorityMeta.colorClass}`}>
-          <div className="admin-card-top">
-            <div>
-              <p className="question-label">{priorityMeta.level}</p>
-              <h3>{priorityMeta.icon} {priorityMeta.level} - {priorityMeta.label}</h3>
-              <p className="queue-session">Color reference: {priorityMeta.hex}</p>
-              <p className="queue-session">Full name: {patient.fullName || "Not provided"}</p>
-              <p className="queue-session">Patient number: #{patient.patientNumber}</p>
-              <p className="queue-session">Status: {patient.status}</p>
-            </div>
-
-            <div className="status-stack">
-              <div className="status-badge">{patient.anonymous ? "Anonymous" : "Identified"}</div>
-              <div className="status-badge status-tag">{patient.status}</div>
-            </div>
-          </div>
-
-          <div className="form-grid">
-            <label className="form-field">
-              <span>Full Name</span>
-              <input aria-label="Full Name" onChange={event => handleFieldChange("fullName", event.target.value)} type="text" value={formState.fullName} />
-            </label>
-
-            <label className="form-field">
-              <span>Patient ID</span>
-              <input aria-label="Patient ID" onChange={event => handleFieldChange("patientId", event.target.value)} type="text" value={formState.patientId} />
-            </label>
-
-            <label className="form-field">
-              <span>Health insurance</span>
-              <input aria-label="Health insurance" onChange={event => handleFieldChange("healthInsurance", event.target.value)} type="text" value={formState.healthInsurance} />
-            </label>
-
-            <label className="form-field">
-              <span>About / Details</span>
-              <textarea aria-label="About and details" className="sitrep-input" onChange={event => handleFieldChange("aboutDetails", event.target.value)} value={formState.aboutDetails} />
-            </label>
-          </div>
-
-          <div className="admin-actions">
-            <button disabled={loading} onClick={savePatient} type="button">
-              Save Changes
-            </button>
-            <Link className="text-button" to="/admin/audit">Audit Log</Link>
-            <Link className="text-button" to="/settings">Settings</Link>
-            {patient.status === "waiting" && (
-              <button className="secondary-button" disabled={loading} onClick={() => handleAction("assess")} type="button">
-                Start Assessing
-              </button>
-            )}
-            <button className="success-button" disabled={loading} onClick={() => handleAction("complete")} type="button">
-              Completed
-            </button>
-            <button className="danger-button" disabled={loading} onClick={() => setShowRejectModal(true)} type="button">
-              Reject
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showRejectModal && (
-        <div aria-modal="true" className="modal-backdrop" role="dialog">
-          <div className="modal-card">
-            <p className="question-label">Confirm rejection</p>
-            <h3>Reject patient details?</h3>
-            <p className="modal-copy">This will move the patient to rejected and close the case.</p>
-            <div className="admin-actions">
-              <button className="secondary-button" onClick={() => setShowRejectModal(false)} type="button">
-                Cancel
-              </button>
-              <button className="danger-button" onClick={() => handleAction("reject")} type="button">
-                Yes, Reject
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {renderPatientCard()}
+      {renderCompleteModal()}
+      {renderRejectModal()}
     </div>
   )
 }

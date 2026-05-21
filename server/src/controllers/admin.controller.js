@@ -52,7 +52,9 @@ exports.getAuditLog = async (req, res) =>
 
 exports.updateQueuePatient = async (req, res) =>
 {
-  const { fullName, patientId, healthInsurance, aboutDetails } = req.body || {};
+  const { fullName, patientId, healthInsurance, aboutDetails, priorityLevel } = req.body || {};
+  const priorityLevelSnakeCase = req.body ? req.body.priority_level : undefined;
+  const requestedPriorityLevel = priorityLevel !== undefined ? priorityLevel : priorityLevelSnakeCase;
 
   if (fullName !== undefined && typeof fullName !== "string")
   {
@@ -74,6 +76,11 @@ exports.updateQueuePatient = async (req, res) =>
     return res.status(400).json({ error: "aboutDetails must be a string" });
   }
 
+  if (requestedPriorityLevel !== undefined && typeof requestedPriorityLevel !== "string")
+  {
+    return res.status(400).json({ error: "priority_level must be a string" });
+  }
+
   try
   {
     const result = await queueService.updatePatient(req.params.sessionId,
@@ -81,7 +88,8 @@ exports.updateQueuePatient = async (req, res) =>
       fullName,
       patientId,
       healthInsurance,
-      aboutDetails
+      aboutDetails,
+      priorityLevel: requestedPriorityLevel
     });
 
     await auditService.recordAction(
@@ -98,6 +106,22 @@ exports.updateQueuePatient = async (req, res) =>
       },
       sessionId: req.params.sessionId
     });
+
+    if (result.priorityChanged)
+    {
+      await auditService.recordAction(
+      {
+        action: "priority_adjusted",
+        actorName: req.user.hospitalName,
+        actorRole: req.user.role,
+        details:
+        {
+          previousPriority: result.previousPriority,
+          newPriority: result.priority
+        },
+        sessionId: req.params.sessionId
+      });
+    }
 
     return res.json(result);
   }

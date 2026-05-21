@@ -106,6 +106,48 @@ test("updates patient details and sitrep", async () =>
 
 
 
+test("updates priority without changing assessing status", async () =>
+{
+  const patient = await createCompletedSession("NON_URGENT");
+
+  await queueService.startAssessing(patient.sessionId);
+
+  const updatedPatient = await queueService.updatePatient(patient.sessionId,
+  {
+    priorityLevel: "EMERGENT"
+  });
+
+  assert.equal(updatedPatient.priority, "EMERGENT");
+  assert.equal(updatedPatient.previousPriority, "NON_URGENT");
+  assert.equal(updatedPatient.priorityChanged, true);
+  assert.equal(updatedPatient.status, "assessing");
+});
+
+
+
+
+test("updates active queue ordering after priority changes", async () =>
+{
+  const first = await createCompletedSession("URGENT");
+  const second = await createCompletedSession("NON_URGENT");
+
+  await queueService.updatePatient(second.sessionId,
+  {
+    priorityLevel: "RESUSCITATION"
+  });
+
+  const queue = await queueService.getQueue();
+
+  assert.deepEqual(queue.map(entry => entry.sessionId),
+  [
+    second.sessionId,
+    first.sessionId
+  ]);
+});
+
+
+
+
 test("removes completed patients from the active queue", async () =>
 {
   const patient = await createCompletedSession("URGENT");

@@ -1,0 +1,321 @@
+{
+  "priorityLevels": [
+    {
+      "id": "RESUSCITATION",
+      "name": "Immediate",
+      "color": "red",
+      "maxWaitingMinutes": 0
+    },
+    {
+      "id": "EMERGENT",
+      "name": "Very Urgent",
+      "color": "orange",
+      "maxWaitingMinutes": 10
+    },
+    {
+      "id": "URGENT",
+      "name": "Urgent",
+      "color": "yellow",
+      "maxWaitingMinutes": 60
+    },
+    {
+      "id": "LESS_URGENT",
+      "name": "Standard",
+      "color": "green",
+      "maxWaitingMinutes": 120
+    },
+    {
+      "id": "NON_URGENT",
+      "name": "Non-Urgent",
+      "color": "blue",
+      "maxWaitingMinutes": 240
+    }
+  ],
+  "globalQuestions": [
+    {
+      "id": "age_group",
+      "type": "choice",
+      "text": "How old are you?",
+      "options": [
+        "child",
+        "adolescent",
+        "young_adult",
+        "middle_adult",
+        "elderly"
+      ]
+    },
+    {
+      "id": "chief_complaint",
+      "type": "choice",
+      "text": "What is your main symptom?",
+      "options": [
+        "difficulty_breathing",
+        "chest_pain",
+        "fever",
+        "neurological_symptoms",
+        "vomiting_dehydration",
+        "trauma_bleeding",
+        "general_pain",
+        "other_not_sure"
+      ]
+    },
+    {
+      "id": "recent_onset",
+      "type": "yes_no",
+      "text": "Did your problem start recently or suddenly?"
+    },
+    {
+      "id": "comorbidities",
+      "type": "multi_choice",
+      "text": "Do you have any relevant medical conditions?",
+      "options": [
+        "none",
+        "asthma",
+        "epilepsy",
+        "hypertension",
+        "diabetes",
+        "heart_disease",
+        "lung_disease",
+        "cancer",
+        "pregnancy",
+        "other"
+      ]
+    },
+    {
+      "id": "allergies",
+      "type": "yes_no",
+      "text": "Do you have any known allergies?"
+    }
+  ],
+  "globalRedFlags": [
+    {
+      "id": "unconscious_or_unresponsive",
+      "text": "Are you unconscious or unresponsive?",
+      "yesPriority": "RESUSCITATION"
+    },
+    {
+      "id": "severe_breathing_difficulty",
+      "text": "Are you having severe difficulty breathing?",
+      "yesPriority": "RESUSCITATION"
+    },
+    {
+      "id": "severe_bleeding",
+      "text": "Are you bleeding severely or uncontrollably?",
+      "yesPriority": "RESUSCITATION"
+    },
+    {
+      "id": "sudden_confusion",
+      "text": "Are you suddenly confused or unable to speak normally?",
+      "yesPriority": "EMERGENT"
+    },
+    {
+      "id": "stroke_signs",
+      "text": "Do you have facial drooping, weakness on one side, or sudden difficulty speaking?",
+      "yesPriority": "EMERGENT"
+    },
+    {
+      "id": "sudden_fainting",
+      "text": "Did you faint suddenly without a clear reason?",
+      "yesPriority": "EMERGENT"
+    }
+  ],
+  "flows": {
+    "difficulty_breathing": {
+      "start": "breathing_1",
+      "nodes": {
+        "breathing_1": {
+          "text": "Are you struggling to breathe or unable to speak full sentences?",
+          "yes": "END_RESUSCITATION",
+          "no": "breathing_2"
+        },
+        "breathing_2": {
+          "text": "Do your lips, fingers, or toes look bluish?",
+          "yes": "END_EMERGENT",
+          "no": "breathing_3"
+        },
+        "breathing_3": {
+          "text": "Do you have asthma or a known lung disease?",
+          "yes": "END_URGENT",
+          "no": "breathing_4"
+        },
+        "breathing_4": {
+          "text": "Did your breathing difficulty start suddenly?",
+          "yes": "END_URGENT",
+          "no": "END_LESS_URGENT"
+        }
+      }
+    },
+    "chest_pain": {
+      "start": "chest_1",
+      "nodes": {
+        "chest_1": {
+          "text": "Is your chest pain severe or crushing?",
+          "yes": "END_EMERGENT",
+          "no": "chest_2"
+        },
+        "chest_2": {
+          "text": "Does your pain spread to your arm, jaw, back, or neck?",
+          "yes": "END_EMERGENT",
+          "no": "chest_3"
+        },
+        "chest_3": {
+          "text": "Are you sweating, pale, nauseous, or short of breath?",
+          "yes": "END_EMERGENT",
+          "no": "chest_4"
+        },
+        "chest_4": {
+          "text": "Do you have heart disease, hypertension, diabetes, or high cholesterol?",
+          "yes": "END_URGENT",
+          "no": "END_LESS_URGENT"
+        }
+      }
+    },
+    "fever": {
+      "start": "fever_1",
+      "nodes": {
+        "fever_1": {
+          "text": "Are you confused, very sleepy, or difficult to wake?",
+          "yes": "END_EMERGENT",
+          "no": "fever_2"
+        },
+        "fever_2": {
+          "text": "Is your fever very high or continuing despite medication?",
+          "yes": "END_URGENT",
+          "no": "fever_3"
+        },
+        "fever_3": {
+          "text": "Has your fever lasted more than 5 days?",
+          "yes": "END_URGENT",
+          "no": "fever_4"
+        },
+        "fever_4": {
+          "text": "Are you under 18, 65 or older, pregnant, or immunocompromised?",
+          "yes": "END_URGENT",
+          "no": "END_LESS_URGENT"
+        }
+      }
+    },
+    "neurological_symptoms": {
+      "start": "neuro_1",
+      "nodes": {
+        "neuro_1": {
+          "text": "Do you have facial drooping, weakness on one side, or sudden difficulty speaking?",
+          "yes": "END_EMERGENT",
+          "no": "neuro_2"
+        },
+        "neuro_2": {
+          "text": "Did your symptoms start suddenly?",
+          "yes": "END_EMERGENT",
+          "no": "neuro_3"
+        },
+        "neuro_3": {
+          "text": "Are you confused or not oriented?",
+          "yes": "END_EMERGENT",
+          "no": "neuro_4"
+        },
+        "neuro_4": {
+          "text": "Did you have a seizure or sudden fainting?",
+          "yes": "END_URGENT",
+          "no": "END_LESS_URGENT"
+        }
+      }
+    },
+    "vomiting_dehydration": {
+      "start": "vomiting_1",
+      "nodes": {
+        "vomiting_1": {
+          "text": "Are you vomiting everything, including water?",
+          "yes": "END_URGENT",
+          "no": "vomiting_2"
+        },
+        "vomiting_2": {
+          "text": "Do you have signs of dehydration, such as a very dry mouth, no tears, intense thirst, or reduced urination?",
+          "yes": "END_URGENT",
+          "no": "vomiting_3"
+        },
+        "vomiting_3": {
+          "text": "Are you under 18, 65 or older, pregnant, or diabetic?",
+          "yes": "END_URGENT",
+          "no": "vomiting_4"
+        },
+        "vomiting_4": {
+          "text": "Has your vomiting lasted more than 24 hours?",
+          "yes": "END_LESS_URGENT",
+          "no": "END_NON_URGENT"
+        }
+      }
+    },
+    "trauma_bleeding": {
+      "start": "trauma_1",
+      "nodes": {
+        "trauma_1": {
+          "text": "Are you bleeding severely or uncontrollably?",
+          "yes": "END_RESUSCITATION",
+          "no": "trauma_2"
+        },
+        "trauma_2": {
+          "text": "Did you have major trauma, a fall from height, or a high-speed accident?",
+          "yes": "END_EMERGENT",
+          "no": "trauma_3"
+        },
+        "trauma_3": {
+          "text": "Do you have a deformity, an open fracture, or trouble moving the injured limb?",
+          "yes": "END_URGENT",
+          "no": "trauma_4"
+        },
+        "trauma_4": {
+          "text": "Is your pain moderate to severe?",
+          "yes": "END_URGENT",
+          "no": "END_LESS_URGENT"
+        }
+      }
+    },
+    "general_pain": {
+      "start": "pain_1",
+      "nodes": {
+        "pain_1": {
+          "text": "Is your pain sudden and severe?",
+          "yes": "END_URGENT",
+          "no": "pain_2"
+        },
+        "pain_2": {
+          "text": "Do you also have fever, vomiting, fainting, or confusion?",
+          "yes": "END_URGENT",
+          "no": "pain_3"
+        },
+        "pain_3": {
+          "text": "Has your pain been getting worse quickly?",
+          "yes": "END_URGENT",
+          "no": "pain_4"
+        },
+        "pain_4": {
+          "text": "Has your pain lasted for more than one month without suddenly getting worse?",
+          "yes": "END_NON_URGENT",
+          "no": "END_LESS_URGENT"
+        }
+      }
+    }
+  },
+  "terminalNodes": {
+    "END_RESUSCITATION": {
+      "done": true,
+      "priority": "RESUSCITATION"
+    },
+    "END_EMERGENT": {
+      "done": true,
+      "priority": "EMERGENT"
+    },
+    "END_URGENT": {
+      "done": true,
+      "priority": "URGENT"
+    },
+    "END_LESS_URGENT": {
+      "done": true,
+      "priority": "LESS_URGENT"
+    },
+    "END_NON_URGENT": {
+      "done": true,
+      "priority": "NON_URGENT"
+    }
+  }
+}

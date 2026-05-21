@@ -15,6 +15,53 @@
 {
   text-align: left;
   box-shadow: 0 16px 40px rgba(12, 28, 45, 0.08);
+  padding-bottom: 40px;
+}
+
+.admin-queue-card
+{
+  padding: 22px 24px;
+}
+
+.admin-card-summary
+{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.admin-card-main
+{
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-card-main h3
+{
+  margin: 0;
+}
+
+.queue-summary-grid
+{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.expand-button
+{
+  flex-shrink: 0;
+}
+
+.admin-card-details
+{
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
 }
 
 .doctor-card
@@ -28,8 +75,11 @@
 {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 28px;
   align-items: flex-start;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 26px;
 }
 
 .admin-header
@@ -51,6 +101,18 @@
   flex-wrap: wrap;
 }
 
+.queue-sort-controls
+{
+  display: grid;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.queue-sort-buttons
+{
+  margin-bottom: 0;
+}
+
 .debug-box
 {
   padding: 18px;
@@ -62,7 +124,9 @@
 .status-stack
 {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  justify-items: end;
+  min-width: 220px;
 }
 
 .audit-list
@@ -85,12 +149,52 @@
 
 .admin-card .form-grid
 {
+  gap: 20px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 0;
 }
 
 .admin-card .form-field:last-child
 {
   grid-column: 1 / -1;
+}
+
+.details-field
+{
+  grid-column: 1 / -1;
+}
+
+.priority-card-field
+{
+  width: 100%;
+  margin-top: 12px;
+  color: #44515D;
+  font-size: 14px;
+  justify-items: stretch;
+}
+
+.admin-card .admin-actions
+{
+  margin-top: 32px;
+  padding-top: 24px;
+}
+
+.priority-select
+{
+  border: 2px solid var(--primary);
+  border-radius: 16px;
+  background: var(--surface-strong);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  min-height: 52px;
+  padding: 12px 16px;
+}
+
+.priority-select:focus
+{
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(25, 118, 210, 0.14);
 }
 
 .modal-copy
@@ -108,6 +212,13 @@
     align-items: flex-start;
   }
 
+  .status-stack
+  {
+    justify-items: stretch;
+    min-width: 0;
+    width: 100%;
+  }
+
   .admin-card .form-grid
   {
     grid-template-columns: 1fr;
@@ -116,5 +227,16 @@
   .admin-card .form-field:last-child
   {
     grid-column: auto;
+  }
+
+  .admin-card-summary
+  {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .expand-button
+  {
+    width: 100%;
   }
 }

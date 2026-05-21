@@ -1,56 +1,31 @@
 const { pool } = require("../db/database");
+const triageFlow = require("../data/triage-flow.json");
 
-const questions =
+const answerLabels =
 {
-  q1:
-  {
-    id: "q1",
-    text: "Is the patient unconscious or unresponsive?",
-    answers:
-    [
-      { id: "yes", label: "Yes", next: "END_RESUSCITATION" },
-      { id: "no", label: "No", next: "q2" }
-    ]
-  },
-  q2:
-  {
-    id: "q2",
-    text: "Is the patient having serious trouble breathing?",
-    answers:
-    [
-      { id: "yes", label: "Yes", next: "END_EMERGENT" },
-      { id: "no", label: "No", next: "q3" }
-    ]
-  },
-  q3:
-  {
-    id: "q3",
-    text: "Does the patient have chest pain or signs of severe injury?",
-    answers:
-    [
-      { id: "yes", label: "Yes", next: "END_URGENT" },
-      { id: "no", label: "No", next: "q4" }
-    ]
-  },
-  q4:
-  {
-    id: "q4",
-    text: "Does the patient have moderate pain, fever, or worsening symptoms?",
-    answers:
-    [
-      { id: "yes", label: "Yes", next: "END_LESS_URGENT" },
-      { id: "no", label: "No", next: "END_NON_URGENT" }
-    ]
-  }
-};
-
-const priorityMap =
-{
-  END_RESUSCITATION: "RESUSCITATION",
-  END_EMERGENT: "EMERGENT",
-  END_URGENT: "URGENT",
-  END_LESS_URGENT: "LESS_URGENT",
-  END_NON_URGENT: "NON_URGENT"
+  adolescent: "13–17 years",
+  asthma: "Asthma",
+  cancer: "Cancer",
+  chest_pain: "Chest pain",
+  child: "0–12 years",
+  diabetes: "Diabetes",
+  difficulty_breathing: "Breathing difficulty",
+  elderly: "65+ years",
+  epilepsy: "Epilepsy",
+  fever: "Fever",
+  general_pain: "Pain",
+  heart_disease: "Heart disease",
+  hypertension: "Hypertension",
+  lung_disease: "Lung disease",
+  middle_adult: "40–64 years",
+  neurological_symptoms: "Neurological symptoms",
+  none: "None",
+  other: "Other",
+  other_not_sure: "Other / not sure",
+  pregnancy: "Pregnancy",
+  trauma_bleeding: "Trauma or bleeding",
+  vomiting_dehydration: "Vomiting or dehydration",
+  young_adult: "18–39 years"
 };
 
 
@@ -66,9 +41,176 @@ function createError(message, statusCode)
 
 
 
+function formatAnswerLabel(answerId)
+{
+  if (answerLabels[answerId])
+  {
+    return answerLabels[answerId];
+  }
+
+  return answerId
+    .split("_")
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+
+
+function buildYesNoAnswers()
+{
+  return [
+    { id: "yes", label: "Yes" },
+    { id: "no", label: "No" }
+  ];
+}
+
+
+
+function buildChoiceAnswers(options)
+{
+  return options.map(option =>
+  ({
+    id: option,
+    label: formatAnswerLabel(option)
+  }));
+}
+
+
+
+function buildGlobalQuestion(question)
+{
+  if (question.type === "yes_no")
+  {
+    return {
+      id: question.id,
+      text: question.text,
+      answers: buildYesNoAnswers()
+    };
+  }
+
+  return {
+    id: question.id,
+    text: question.text,
+    answers: buildChoiceAnswers(question.options || [])
+  };
+}
+
+
+
+function buildRedFlagQuestion(redFlag)
+{
+  return {
+    id: redFlag.id,
+    text: redFlag.text,
+    answers: buildYesNoAnswers()
+  };
+}
+
+
+
+function buildFlowQuestion(questionId, node)
+{
+  return {
+    id: questionId,
+    text: node.text,
+    answers: buildYesNoAnswers()
+  };
+}
+
+
+
+function getFirstGlobalQuestion()
+{
+  return triageFlow.globalQuestions[0];
+}
+
+
+
+function findGlobalQuestion(questionId)
+{
+  const questionIndex = triageFlow.globalQuestions.findIndex(question => question.id === questionId);
+
+  if (questionIndex === -1)
+  {
+    return null;
+  }
+
+  return {
+    kind: "global",
+    index: questionIndex,
+    rawQuestion: triageFlow.globalQuestions[questionIndex],
+    question: buildGlobalQuestion(triageFlow.globalQuestions[questionIndex])
+  };
+}
+
+
+
+function findRedFlagQuestion(questionId)
+{
+  const questionIndex = triageFlow.globalRedFlags.findIndex(question => question.id === questionId);
+
+  if (questionIndex === -1)
+  {
+    return null;
+  }
+
+  return {
+    kind: "red_flag",
+    index: questionIndex,
+    rawQuestion: triageFlow.globalRedFlags[questionIndex],
+    question: buildRedFlagQuestion(triageFlow.globalRedFlags[questionIndex])
+  };
+}
+
+
+
+function findFlowQuestion(questionId)
+{
+  const flowEntries = Object.entries(triageFlow.flows);
+
+  for (const [, flow] of flowEntries)
+  {
+    if (flow.nodes[questionId])
+    {
+      return {
+        kind: "flow",
+        rawQuestion: flow.nodes[questionId],
+        question: buildFlowQuestion(questionId, flow.nodes[questionId])
+      };
+    }
+  }
+
+  return null;
+}
+
+
+
+function findQuestion(questionId)
+{
+  return findGlobalQuestion(questionId)
+    || findRedFlagQuestion(questionId)
+    || findFlowQuestion(questionId);
+}
+
+
+
+function validateAnswer(question, answerId)
+{
+  const selectedAnswer = question.answers.find(answer => answer.id === answerId);
+
+  if (!selectedAnswer)
+  {
+    throw createError("Invalid answer", 400);
+  }
+
+  return selectedAnswer;
+}
+
+
+
 function buildSymptomsSummary(existingSummary, question, answer)
 {
-  const entry = `${question.text} ${answer.label}`;
+  const entry = `${question.id}: ${answer.id}`;
 
   if (!existingSummary)
   {
@@ -80,12 +222,201 @@ function buildSymptomsSummary(existingSummary, question, answer)
 
 
 
+function findAnswerInSummary(symptomsSummary, questionId)
+{
+  if (!symptomsSummary)
+  {
+    return null;
+  }
+
+  const entries = symptomsSummary.split("\n");
+  const matchingEntry = entries.find(entry => entry.startsWith(`${questionId}: `));
+
+  if (!matchingEntry)
+  {
+    return null;
+  }
+
+  return matchingEntry.slice(questionId.length + 2);
+}
+
+
+
+function getFirstRedFlagQuestionId()
+{
+  if (!triageFlow.globalRedFlags.length)
+  {
+    return null;
+  }
+
+  return triageFlow.globalRedFlags[0].id;
+}
+
+
+
+function getComplaintStartQuestionId(symptomsSummary)
+{
+  const chiefComplaint = findAnswerInSummary(symptomsSummary, "chief_complaint");
+
+  if (chiefComplaint === "other_not_sure")
+  {
+    return "END_LESS_URGENT";
+  }
+
+  const flow = triageFlow.flows[chiefComplaint];
+
+  if (!flow)
+  {
+    throw createError("Invalid complaint flow", 500);
+  }
+
+  return flow.start;
+}
+
+
+
+function getNextGlobalQuestionId(questionRecord, symptomsSummary)
+{
+  const nextQuestion = triageFlow.globalQuestions[questionRecord.index + 1];
+
+  if (nextQuestion)
+  {
+    return nextQuestion.id;
+  }
+
+  return getFirstRedFlagQuestionId() || getComplaintStartQuestionId(symptomsSummary);
+}
+
+
+
+function getNextRedFlagQuestionId(questionRecord, answerId, symptomsSummary)
+{
+  if (answerId === "yes")
+  {
+    return `END_${questionRecord.rawQuestion.yesPriority}`;
+  }
+
+  const nextQuestion = triageFlow.globalRedFlags[questionRecord.index + 1];
+
+  if (nextQuestion)
+  {
+    return nextQuestion.id;
+  }
+
+  return getComplaintStartQuestionId(symptomsSummary);
+}
+
+
+
+function getNextFlowQuestionId(questionRecord, answerId)
+{
+  return questionRecord.rawQuestion[answerId];
+}
+
+
+
+function getNextQuestionId(questionRecord, answerId, symptomsSummary)
+{
+  if (questionRecord.kind === "global")
+  {
+    return getNextGlobalQuestionId(questionRecord, symptomsSummary);
+  }
+
+  if (questionRecord.kind === "red_flag")
+  {
+    return getNextRedFlagQuestionId(questionRecord, answerId, symptomsSummary);
+  }
+
+  return getNextFlowQuestionId(questionRecord, answerId);
+}
+
+
+
+function getTerminalPriority(questionId)
+{
+  const terminalNode = triageFlow.terminalNodes[questionId];
+
+  return terminalNode ? terminalNode.priority : null;
+}
+
+
+
+async function fetchSession(sessionId)
+{
+  const sessionResult = await pool.query(
+    `SELECT
+      triage_sessions.id,
+      triage_sessions.session_id,
+      triage_sessions.current_question,
+      triage_sessions.status,
+      triage_sessions.symptoms_summary,
+      patients.full_name,
+      patients.patient_identifier,
+      patients.health_insurance,
+      patients.anonymous,
+      patients.patient_number
+    FROM triage_sessions
+    JOIN patients ON patients.id = triage_sessions.patient_id
+    WHERE triage_sessions.session_id = $1`,
+    [sessionId]
+  );
+
+  return sessionResult.rows[0] || null;
+}
+
+
+
+async function completeSession(session, priority, symptomsSummary)
+{
+  await pool.query(
+    `UPDATE triage_sessions
+    SET priority_level = $1,
+      status = $2,
+      symptoms_summary = $3,
+      completed_at = CURRENT_TIMESTAMP
+    WHERE session_id = $4`,
+    [priority, "completed", symptomsSummary, session.session_id]
+  );
+
+  return {
+    done: true,
+    anonymous: session.anonymous,
+    fullName: session.full_name || "",
+    healthInsurance: session.health_insurance || "",
+    patientId: session.patient_identifier || "",
+    patientNumber: Number(session.patient_number),
+    sessionId: session.session_id,
+    priority
+  };
+}
+
+
+
+async function moveToQuestion(sessionId, questionId, symptomsSummary)
+{
+  await pool.query(
+    `UPDATE triage_sessions
+    SET current_question = $1,
+      symptoms_summary = $2
+    WHERE session_id = $3`,
+    [questionId, symptomsSummary, sessionId]
+  );
+
+  return {
+    done: false,
+    question: findQuestion(questionId).question
+  };
+}
+
+
+
 async function startTriage(patientDetails = {})
 {
   const fullName = typeof patientDetails.fullName === "string" ? patientDetails.fullName.trim() : "";
   const patientIdentifier = typeof patientDetails.patientId === "string" ? patientDetails.patientId.trim() : "";
   const healthInsurance = typeof patientDetails.healthInsurance === "string" ? patientDetails.healthInsurance.trim() : "";
   const anonymous = !fullName && !patientIdentifier && !healthInsurance;
+  const firstQuestion = getFirstGlobalQuestion();
   const client = await pool.connect();
 
   try
@@ -106,7 +437,7 @@ async function startTriage(patientDetails = {})
       (patient_id, current_question, status)
       VALUES ($1, $2, $3)
       RETURNING session_id`,
-      [patient.id, "q1", "active"]
+      [patient.id, firstQuestion.id, "active"]
     );
 
     await client.query("COMMIT");
@@ -118,7 +449,7 @@ async function startTriage(patientDetails = {})
       patientId: patientIdentifier,
       healthInsurance,
       sessionId: sessionResult.rows[0].session_id,
-      question: questions.q1
+      question: buildGlobalQuestion(firstQuestion)
     };
   }
   catch (error)
@@ -137,25 +468,7 @@ async function startTriage(patientDetails = {})
 
 async function answerQuestion(sessionId, answerId)
 {
-  const sessionResult = await pool.query(
-    `SELECT
-      triage_sessions.id,
-      triage_sessions.session_id,
-      triage_sessions.current_question,
-      triage_sessions.status,
-      triage_sessions.symptoms_summary,
-      patients.full_name,
-      patients.patient_identifier,
-      patients.health_insurance,
-      patients.anonymous,
-      patients.patient_number
-    FROM triage_sessions
-    JOIN patients ON patients.id = triage_sessions.patient_id
-    WHERE triage_sessions.session_id = $1`,
-    [sessionId]
-  );
-
-  const session = sessionResult.rows[0];
+  const session = await fetchSession(sessionId);
 
   if (!session)
   {
@@ -167,60 +480,24 @@ async function answerQuestion(sessionId, answerId)
     throw createError("Session already completed", 409);
   }
 
-  const currentQuestion = questions[session.current_question];
+  const questionRecord = findQuestion(session.current_question);
 
-  if (!currentQuestion)
+  if (!questionRecord)
   {
     throw createError("Invalid session state", 500);
   }
 
-  const selectedAnswer = currentQuestion.answers.find(answer => answer.id === answerId);
+  const selectedAnswer = validateAnswer(questionRecord.question, answerId);
+  const symptomsSummary = buildSymptomsSummary(session.symptoms_summary, questionRecord.question, selectedAnswer);
+  const nextQuestionId = getNextQuestionId(questionRecord, answerId, symptomsSummary);
+  const priority = getTerminalPriority(nextQuestionId);
 
-  if (!selectedAnswer)
+  if (priority)
   {
-    throw createError("Invalid answer", 400);
+    return completeSession(session, priority, symptomsSummary);
   }
 
-  const symptomsSummary = buildSymptomsSummary(session.symptoms_summary, currentQuestion, selectedAnswer);
-
-  if (selectedAnswer.next.startsWith("END"))
-  {
-    const priority = priorityMap[selectedAnswer.next];
-
-    await pool.query(
-      `UPDATE triage_sessions
-      SET priority_level = $1,
-        status = $2,
-        symptoms_summary = $3,
-        completed_at = CURRENT_TIMESTAMP
-      WHERE session_id = $4`,
-      [priority, "completed", symptomsSummary, sessionId]
-    );
-
-    return {
-      done: true,
-      anonymous: session.anonymous,
-      fullName: session.full_name || "",
-      healthInsurance: session.health_insurance || "",
-      patientId: session.patient_identifier || "",
-      patientNumber: Number(session.patient_number),
-      sessionId,
-      priority
-    };
-  }
-
-  await pool.query(
-    `UPDATE triage_sessions
-    SET current_question = $1,
-      symptoms_summary = $2
-    WHERE session_id = $3`,
-    [selectedAnswer.next, symptomsSummary, sessionId]
-  );
-
-  return {
-    done: false,
-    question: questions[selectedAnswer.next]
-  };
+  return moveToQuestion(sessionId, nextQuestionId, symptomsSummary);
 }
 
 

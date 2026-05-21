@@ -53,7 +53,7 @@ function Settings()
   return (
     <div className="shell">
       <div className="page-header">
-        <Link className="back-link" to="/">Back</Link>
+        <Link className="back-link" to="/">{"\u2190 Back"}</Link>
         <div>
           <p className="eyebrow">Hospital preferences</p>
           <h2>Settings</h2>

@@ -144,11 +144,28 @@ button:disabled
 
 .back-link
 {
-  display: inline-block;
-  color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 14px 24px;
+  border: 1px solid rgba(18, 94, 162, 0.28);
+  border-radius: calc(var(--surface-radius) + 6px);
+  background: var(--surface-strong);
+  color: #0B3D70;
   text-decoration: none;
   font-weight: 700;
   font-size: 16px;
+  box-shadow: 0 10px 24px rgba(12, 28, 45, 0.1);
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+.back-link:hover
+{
+  background: #EAF3FD;
+  border-color: rgba(18, 94, 162, 0.5);
+  box-shadow: 0 14px 30px rgba(25, 118, 210, 0.18);
+  transform: translateY(-1px);
 }
 
 .page-header
@@ -245,7 +262,7 @@ button:focus-visible,
 input:focus-visible,
 textarea:focus-visible
 {
-  outline: 3px solid rgba(25, 118, 210, 0.35);
+  outline: 3px solid #0B3D70;
   outline-offset: 3px;
 }
 

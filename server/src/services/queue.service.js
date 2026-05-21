@@ -284,7 +284,11 @@ async function updatePatient(sessionId, updates)
   const patientIdentifier = updates.patientId !== undefined ? updates.patientId.trim() : row.patient_identifier;
   const healthInsurance = updates.healthInsurance !== undefined ? updates.healthInsurance.trim() : row.health_insurance;
   const aboutDetails = updates.aboutDetails !== undefined ? updates.aboutDetails.trim() : row.about_details;
+  const priorityLevel = updates.priorityLevel !== undefined ? updates.priorityLevel : row.priority_level;
   const anonymous = !fullName && !patientIdentifier && !healthInsurance;
+  const priorityChanged = priorityLevel !== row.priority_level;
+
+  validatePriority(priorityLevel);
 
   await pool.query(
     `UPDATE patients
@@ -303,17 +307,31 @@ async function updatePatient(sessionId, updates)
 
   await pool.query(
     `UPDATE queue
-    SET about_details = $1
+    SET about_details = $1,
+      priority_level = $2
     WHERE triage_session_id =
     (
       SELECT id
       FROM triage_sessions
-      WHERE session_id = $2
+      WHERE session_id = $3
     )`,
-    [aboutDetails || null, sessionId]
+    [aboutDetails || null, priorityLevel, sessionId]
   );
 
-  return getPatient(sessionId);
+  await pool.query(
+    `UPDATE triage_sessions
+    SET priority_level = $1
+    WHERE session_id = $2`,
+    [priorityLevel, sessionId]
+  );
+
+  const updatedPatient = await getPatient(sessionId);
+
+  return {
+    ...updatedPatient,
+    previousPriority: row.priority_level,
+    priorityChanged
+  };
 }
 
 

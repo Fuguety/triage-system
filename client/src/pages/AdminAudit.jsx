@@ -45,7 +45,7 @@ function AdminAudit()
   return (
     <div className="shell">
       <div className="page-header">
-        <Link className="back-link" to="/admin">Back To Admin</Link>
+        <Link className="back-link" to="/admin">{"\u2190 Back"}</Link>
         <div>
           <p className="eyebrow">Traceability</p>
           <h2>Audit Log</h2>
