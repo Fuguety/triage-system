@@ -204,6 +204,40 @@ function AdminPatient()
 
 
 
+  function renderPatientContext()
+  {
+    const contextItems = [
+      { label: "Gender", value: patient.gender },
+      { label: "Pregnancy status", value: patient.pregnancyStatus },
+      { label: "Pregnancy duration", value: patient.pregnancyDetails },
+      { label: "Last period", value: patient.lastPeriod },
+      { label: "Allergies", value: patient.allergies || "Not provided" },
+      { label: "Medical conditions", value: patient.medicalConditions || "Not provided" }
+    ].filter(item => item.value)
+
+    if (contextItems.length === 0)
+    {
+      return null
+    }
+
+    return (
+      <section className="patient-context" aria-label="Patient context">
+        <p className="question-label">Patient context</p>
+
+        <div className="patient-context-grid">
+          {contextItems.map(item => (
+            <div className="patient-context-badge" key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+
+
   function renderPatientForm()
   {
     return (
@@ -269,6 +303,7 @@ function AdminPatient()
     return (
       <div className={`container assessment-panel admin-card doctor-card ${priorityMeta.colorClass}`}>
         {renderPatientHeader()}
+        {renderPatientContext()}
         {renderPatientForm()}
         {renderPatientActions()}
       </div>

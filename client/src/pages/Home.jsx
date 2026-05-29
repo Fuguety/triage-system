@@ -1,7 +1,8 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import "../styles/home.css"
-import { SITE_PROFILE_KEY } from "../utils/theme"
+import { getStoredToken } from "../services/authService"
+import { ACCESSIBILITY_MODE_LABELS, SITE_PROFILE_KEY, getStoredAccessibilityMode } from "../utils/theme"
 
 
 
@@ -22,6 +23,8 @@ function Home()
   const [hospitalUnit, setHospitalUnit] = useState(siteProfile?.hospitalUnit || "")
   const [hospitalAddress, setHospitalAddress] = useState(siteProfile?.hospitalAddress || "")
   const [hospitalPhone, setHospitalPhone] = useState(siteProfile?.hospitalPhone || "")
+  const token = getStoredToken()
+  const displayMode = ACCESSIBILITY_MODE_LABELS[getStoredAccessibilityMode()] || ACCESSIBILITY_MODE_LABELS.default
 
   function applyDebugSetup()
   {
@@ -135,6 +138,31 @@ function Home()
 
   function renderSetupPage()
   {
+    if (!token)
+    {
+      return (
+        <div className="shell">
+          <section className="page-header">
+            <div>
+              <p className="eyebrow">Hospital setup</p>
+              <h2>Staff access required</h2>
+            </div>
+          </section>
+
+          <div className="container setup-card">
+            <p className="section-copy">
+              Hospital details are staff-only configuration. Patients can still change display mode after the station is configured.
+            </p>
+
+            <div className="hero-actions">
+              <Link aria-label="Open staff login" className="text-button" to="/admin">Staff Access</Link>
+              <Link aria-label="Open visual accessibility settings" className="text-button" to="/settings">Visual Accessibility Settings</Link>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="shell">
         <section className="page-header">
@@ -188,6 +216,11 @@ function Home()
           <span className="metric-label">Station status</span>
           <strong>Ready for intake</strong>
         </div>
+
+        <div className="metric-card">
+          <span className="metric-label">Display mode</span>
+          <strong>{displayMode}</strong>
+        </div>
       </div>
     )
   }
@@ -220,11 +253,8 @@ function Home()
         </section>
 
         <section className="quick-links">
-          <button aria-label="Edit hospital setup" className="secondary-button" onClick={resetSetup} type="button">
-            Edit Hospital Setup
-          </button>
-          <button aria-label="Open visual settings" className="secondary-button" onClick={() => navigate("/settings")} type="button">
-            Visual Settings
+          <button aria-label="Open visual accessibility settings" className="secondary-button" onClick={() => navigate("/settings")} type="button">
+            Visual Accessibility Settings
           </button>
         </section>
 

@@ -1,0 +1,22 @@
+{
+  "END_RESUSCITATION": {
+    "done": true,
+    "priority": "RESUSCITATION"
+  },
+  "END_EMERGENT": {
+    "done": true,
+    "priority": "EMERGENT"
+  },
+  "END_URGENT": {
+    "done": true,
+    "priority": "URGENT"
+  },
+  "END_LESS_URGENT": {
+    "done": true,
+    "priority": "LESS_URGENT"
+  },
+  "END_NON_URGENT": {
+    "done": true,
+    "priority": "NON_URGENT"
+  }
+}

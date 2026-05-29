@@ -540,6 +540,13 @@ function Admin()
   {
     return (
       <div className="admin-card-details">
+        <div className="queue-summary-grid patient-clinical-summary">
+          <span>Gender: {patient.gender || "Not recorded"}</span>
+          {patient.pregnancyStatus && <span>Pregnancy status: {patient.pregnancyStatus}</span>}
+          {patient.pregnancyDetails && <span>Pregnancy duration: {patient.pregnancyDetails}</span>}
+          {patient.lastPeriod && <span>Last period: {patient.lastPeriod}</span>}
+        </div>
+
         {renderPatientForm(patient)}
         {renderPatientActions(patient)}
       </div>
@@ -565,6 +572,7 @@ function Admin()
 
             <div className="queue-summary-grid">
               <span>Patient #{patient.patientNumber}</span>
+              <span>Gender: {patient.gender || "Not recorded"}</span>
               <span>{priorityMeta.icon} {priorityMeta.level} - {priorityMeta.label}</span>
               <span className="status-tag">{patient.status}</span>
             </div>

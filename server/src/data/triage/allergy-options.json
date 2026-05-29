@@ -1,0 +1,14 @@
+[
+  "medication_allergy",
+  "food_allergy",
+  "wheat_allergy",
+  "insect_sting_allergy",
+  "latex_allergy",
+  "pollen_allergy",
+  "dust_allergy",
+  "animal_allergy",
+  "mold_allergy",
+  "contrast_dye_allergy",
+  "other",
+  "not_sure"
+]

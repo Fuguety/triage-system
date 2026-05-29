@@ -1,0 +1,168 @@
+[
+  {
+    "id": "gender",
+    "type": "choice",
+    "text": "What is your gender?",
+    "options": [
+      "male",
+      "female",
+      "other",
+      "prefer_not_to_say"
+    ]
+  },
+  {
+    "id": "age_group",
+    "type": "choice",
+    "text": "How old are you?",
+    "options": [
+      "child",
+      "adolescent",
+      "young_adult",
+      "middle_adult",
+      "elderly"
+    ],
+    "nextBySummary": {
+      "questionId": "gender",
+      "answers": {
+        "male": "male_specific_warning",
+        "female": "pregnancy_status",
+        "other": "pregnancy_possible",
+        "prefer_not_to_say": "pregnancy_possible"
+      }
+    }
+  },
+  {
+    "id": "pregnancy_possible",
+    "type": "choice",
+    "text": "Is pregnancy possible?",
+    "options": [
+      "yes",
+      "no",
+      "not_sure"
+    ],
+    "nextByAnswer": {
+      "yes": "pregnancy_status",
+      "no": "allergies",
+      "not_sure": "pregnancy_status"
+    }
+  },
+  {
+    "id": "pregnancy_status",
+    "type": "choice",
+    "text": "Are you pregnant?",
+    "options": [
+      "yes",
+      "no",
+      "not_sure"
+    ],
+    "nextByAnswer": {
+      "yes": "pregnancy_weeks",
+      "no": "last_period",
+      "not_sure": "last_period"
+    }
+  },
+  {
+    "id": "pregnancy_weeks",
+    "type": "choice",
+    "text": "How many weeks pregnant are you?",
+    "options": [
+      "less_than_twelve_weeks",
+      "twelve_to_twenty_seven_weeks",
+      "twenty_eight_or_more_weeks",
+      "not_sure"
+    ],
+    "nextBySummary": {
+      "questionId": "gender",
+      "answers": {
+        "female": "allergies",
+        "other": "last_period",
+        "prefer_not_to_say": "last_period"
+      },
+      "default": "allergies"
+    }
+  },
+  {
+    "id": "last_period",
+    "type": "choice",
+    "text": "When was your last period?",
+    "options": [
+      "less_than_one_month",
+      "one_to_three_months",
+      "more_than_three_months",
+      "not_sure",
+      "not_applicable"
+    ],
+    "next": "allergies"
+  },
+  {
+    "id": "male_specific_warning",
+    "type": "yes_no",
+    "text": "Do you have testicular pain, swelling, or sudden urinary problems?",
+    "nextByAnswer": {
+      "yes": "allergies",
+      "no": "allergies"
+    }
+  },
+  {
+    "id": "allergies",
+    "type": "choice",
+    "text": "Do you have any known allergies?",
+    "options": [
+      "yes",
+      "no",
+      "not_sure"
+    ],
+    "nextByAnswer": {
+      "yes": "allergy_details",
+      "no": "comorbidities",
+      "not_sure": "allergy_details"
+    }
+  },
+  {
+    "id": "allergy_details",
+    "type": "multi_select",
+    "text": "What type of allergy do you have?",
+    "next": "comorbidities"
+  },
+  {
+    "id": "comorbidities",
+    "type": "multi_select",
+    "text": "Do you have any relevant medical conditions?"
+  },
+  {
+    "id": "chief_complaint",
+    "type": "choice",
+    "text": "What is your main symptom?",
+    "options": [
+      "difficulty_breathing",
+      "chest_pain",
+      "fever",
+      "neurological_symptoms",
+      "vomiting_dehydration",
+      "trauma_bleeding",
+      "general_pain",
+      "other_not_sure"
+    ]
+  },
+  {
+    "id": "symptom_onset",
+    "type": "choice",
+    "text": "When did it start?",
+    "options": [
+      "less_than_one_hour",
+      "one_to_twenty_four_hours",
+      "one_to_three_days",
+      "four_to_seven_days",
+      "more_than_seven_days",
+      "more_than_one_month",
+      "not_sure"
+    ],
+    "nextBySummary": {
+      "questionId": "male_specific_warning",
+      "answers": {
+        "yes": "END_URGENT"
+      },
+      "default": "unconscious_or_unresponsive"
+    }
+  }
+]

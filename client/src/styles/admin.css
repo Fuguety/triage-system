@@ -64,6 +64,53 @@
   border-top: 1px solid var(--line);
 }
 
+.patient-clinical-summary
+{
+  margin-bottom: 20px;
+}
+
+.patient-context
+{
+  display: grid;
+  gap: 12px;
+  margin-bottom: 26px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+}
+
+.patient-context-grid
+{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.patient-context-badge
+{
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.patient-context-badge span
+{
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.patient-context-badge strong
+{
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.35;
+}
+
 .doctor-card
 {
   max-width: 760px;
@@ -233,6 +280,11 @@
   {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .patient-context-grid
+  {
+    grid-template-columns: 1fr;
   }
 
   .expand-button

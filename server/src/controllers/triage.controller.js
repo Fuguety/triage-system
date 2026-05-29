@@ -90,6 +90,29 @@ exports.answerQuestion = async (req, res) =>
 
 
 
+exports.goBackQuestion = async (req, res) =>
+{
+  const { sessionId } = req.body || {};
+
+  if (!sessionId)
+  {
+    return res.status(400).json({ error: "sessionId is required" });
+  }
+
+  try
+  {
+    const result = await triageService.goBackQuestion(sessionId);
+
+    return res.json(result);
+  }
+  catch (error)
+  {
+    return res.status(error.statusCode || 500).json({ error: error.message });
+  }
+};
+
+
+
 exports.getQueue = async (req, res) =>
 {
   try

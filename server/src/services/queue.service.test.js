@@ -106,6 +106,45 @@ test("updates patient details and sitrep", async () =>
 
 
 
+test("returns gender and pregnancy details for staff review", async () =>
+{
+  const session = await triageService.startTriage();
+
+  await triageService.answerQuestion(session.sessionId, "female");
+  await triageService.answerQuestion(session.sessionId, "young_adult");
+  await triageService.answerQuestion(session.sessionId, "yes");
+  await triageService.answerQuestion(session.sessionId, "twelve_to_twenty_seven_weeks");
+  await queueService.enqueuePatient(session.sessionId, "URGENT");
+
+  const patient = await queueService.getPatient(session.sessionId);
+
+  assert.equal(patient.gender, "Female");
+  assert.equal(patient.pregnancyStatus, "Yes");
+  assert.equal(patient.pregnancyDetails, "12\u201327 weeks");
+});
+
+
+
+test("returns allergy and condition details for staff review", async () =>
+{
+  const session = await triageService.startTriage();
+
+  await triageService.answerQuestion(session.sessionId, "other");
+  await triageService.answerQuestion(session.sessionId, "young_adult");
+  await triageService.answerQuestion(session.sessionId, "no");
+  await triageService.answerQuestion(session.sessionId, "yes");
+  await triageService.answerQuestion(session.sessionId, ["wheat_allergy", "dust_allergy"]);
+  await triageService.answerQuestion(session.sessionId, ["celiac_disease", "gluten_intolerance_sensitivity"]);
+  await queueService.enqueuePatient(session.sessionId, "URGENT");
+
+  const patient = await queueService.getPatient(session.sessionId);
+
+  assert.equal(patient.allergies, "Wheat allergy, Dust allergy");
+  assert.equal(patient.medicalConditions, "Celiac disease, Gluten intolerance / sensitivity");
+});
+
+
+
 test("updates priority without changing assessing status", async () =>
 {
   const patient = await createCompletedSession("NON_URGENT");

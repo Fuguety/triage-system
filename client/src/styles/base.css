@@ -14,6 +14,11 @@
   --shadow: 0 18px 50px rgba(12, 28, 45, 0.1);
 }
 
+:root.accessibility-dyslexia
+{
+  letter-spacing: 0.035em;
+}
+
 *,
 *::before,
 *::after
@@ -32,6 +37,36 @@ body
   color: var(--text);
   font-size: 16px;
   line-height: 1.5;
+}
+
+:root.accessibility-dark body,
+:root.accessibility-high-contrast body
+{
+  background: var(--bg);
+}
+
+:root.accessibility-dyslexia body
+{
+  font-family: "Atkinson Hyperlegible", "Verdana", "Tahoma", "Trebuchet MS", sans-serif;
+  line-height: 1.75;
+}
+
+:root.accessibility-dyslexia p,
+:root.accessibility-dyslexia li,
+:root.accessibility-dyslexia label,
+:root.accessibility-dyslexia input,
+:root.accessibility-dyslexia textarea,
+:root.accessibility-dyslexia button,
+:root.accessibility-dyslexia a
+{
+  line-height: 1.65;
+}
+
+:root.accessibility-dyslexia .container,
+:root.accessibility-dyslexia .queue-card,
+:root.accessibility-dyslexia .metric-card
+{
+  padding-block: 36px;
 }
 
 #root
@@ -54,6 +89,31 @@ body
   box-shadow: var(--shadow);
   border-radius: var(--surface-radius);
   padding: 32px;
+}
+
+:root.accessibility-dark .container,
+:root.accessibility-dark .queue-card,
+:root.accessibility-dark .metric-card,
+:root.accessibility-dark .modal-card,
+:root.accessibility-dark .hero-card,
+:root.accessibility-dark .settings-preview-card
+{
+  background: var(--surface);
+  border-color: var(--line);
+}
+
+:root.accessibility-high-contrast .container,
+:root.accessibility-high-contrast .queue-card,
+:root.accessibility-high-contrast .metric-card,
+:root.accessibility-high-contrast .modal-card,
+:root.accessibility-high-contrast .hero-card,
+:root.accessibility-high-contrast .settings-preview-card
+{
+  background: var(--surface);
+  border: 3px solid var(--line);
+  backdrop-filter: none;
+  box-shadow: none;
+  padding-block: 36px;
 }
 
 .admin-container
@@ -86,7 +146,7 @@ button:hover
 
 button:disabled
 {
-  opacity: 0.7;
+  opacity: 0.82;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
@@ -96,6 +156,7 @@ button:disabled
 {
   background-color: var(--secondary);
   color: var(--text);
+  border: 1px solid var(--line);
 }
 
 .secondary-button:hover
@@ -135,6 +196,7 @@ button:disabled
   text-decoration: none;
   font-size: 16px;
   min-height: 48px;
+  border: 1px solid var(--line);
 }
 
 .text-button:hover
@@ -264,6 +326,172 @@ textarea:focus-visible
 {
   outline: 3px solid #0B3D70;
   outline-offset: 3px;
+}
+
+:root.accessibility-high-contrast button:focus-visible,
+:root.accessibility-high-contrast .text-button:focus-visible,
+:root.accessibility-high-contrast .back-link:focus-visible,
+:root.accessibility-high-contrast .staff-access-link:focus-visible,
+:root.accessibility-high-contrast input:focus-visible,
+:root.accessibility-high-contrast textarea:focus-visible
+{
+  outline: 5px solid #FFD400;
+  outline-offset: 4px;
+}
+
+:root.accessibility-high-contrast button,
+:root.accessibility-high-contrast .text-button,
+:root.accessibility-high-contrast .back-link
+{
+  border: 3px solid #000000;
+  font-weight: 800;
+}
+
+:root.accessibility-dark .secondary-button,
+:root.accessibility-dark .text-button,
+:root.accessibility-dark .back-link
+{
+  background: var(--secondary);
+  color: var(--text);
+  border-color: var(--line);
+}
+
+:root.accessibility-dark button:not(.secondary-button):not(.danger-button):not(.success-button)
+{
+  color: #07111D;
+  font-weight: 800;
+}
+
+:root.accessibility-dark .secondary-button:hover,
+:root.accessibility-dark .text-button:hover,
+:root.accessibility-dark .back-link:hover
+{
+  background: #31475D;
+  color: #FFFFFF;
+}
+
+:root.accessibility-dark button:disabled,
+:root.accessibility-dark .disabled-link
+{
+  background: #33485D;
+  color: #F4F8FB;
+  opacity: 0.9;
+  border: 1px solid var(--line);
+}
+
+:root.accessibility-high-contrast button:disabled,
+:root.accessibility-high-contrast .disabled-link
+{
+  color: #000000;
+  background: #FFFFFF;
+  opacity: 1;
+  border: 3px dashed #000000;
+}
+
+:root.accessibility-dark .form-field,
+:root.accessibility-dark .settings-note,
+:root.accessibility-high-contrast .form-field,
+:root.accessibility-high-contrast .settings-note
+{
+  color: var(--muted);
+}
+
+:root.accessibility-dark .form-field input,
+:root.accessibility-dark .sitrep-input,
+:root.accessibility-high-contrast .form-field input,
+:root.accessibility-high-contrast .sitrep-input
+{
+  background: var(--surface-strong);
+  color: var(--text);
+  border-color: var(--line);
+}
+
+:root.accessibility-dark .priority-immediate
+{
+  background: linear-gradient(90deg, rgba(255, 77, 77, 0.16), var(--surface) 42%);
+}
+
+:root.accessibility-dark .priority-very-urgent
+{
+  background: linear-gradient(90deg, rgba(255, 159, 28, 0.16), var(--surface) 42%);
+}
+
+:root.accessibility-dark .priority-urgent
+{
+  background: linear-gradient(90deg, rgba(255, 212, 0, 0.18), var(--surface) 42%);
+}
+
+:root.accessibility-dark .priority-standard
+{
+  background: linear-gradient(90deg, rgba(61, 220, 132, 0.16), var(--surface) 42%);
+}
+
+:root.accessibility-dark .priority-non-urgent
+{
+  background: linear-gradient(90deg, rgba(78, 163, 255, 0.16), var(--surface) 42%);
+}
+
+:root.accessibility-high-contrast .priority-immediate
+{
+  background: linear-gradient(90deg, rgba(255, 77, 77, 0.2), var(--surface) 34%);
+}
+
+:root.accessibility-high-contrast .priority-very-urgent
+{
+  background: linear-gradient(90deg, rgba(255, 159, 28, 0.24), var(--surface) 34%);
+}
+
+:root.accessibility-high-contrast .priority-urgent
+{
+  background: linear-gradient(90deg, rgba(255, 212, 0, 0.28), var(--surface) 34%);
+}
+
+:root.accessibility-high-contrast .priority-standard
+{
+  background: linear-gradient(90deg, rgba(61, 220, 132, 0.2), var(--surface) 34%);
+}
+
+:root.accessibility-high-contrast .priority-non-urgent
+{
+  background: linear-gradient(90deg, rgba(78, 163, 255, 0.2), var(--surface) 34%);
+}
+
+:root.accessibility-dark .priority-immediate,
+:root.accessibility-high-contrast .priority-immediate
+{
+  border-left-color: #FF4D4D;
+}
+
+:root.accessibility-dark .priority-very-urgent,
+:root.accessibility-high-contrast .priority-very-urgent
+{
+  border-left-color: #FF9F1C;
+}
+
+:root.accessibility-dark .priority-urgent,
+:root.accessibility-high-contrast .priority-urgent
+{
+  border-left-color: #FFD400;
+}
+
+:root.accessibility-dark .priority-standard,
+:root.accessibility-high-contrast .priority-standard
+{
+  border-left-color: #3DDC84;
+}
+
+:root.accessibility-dark .priority-non-urgent,
+:root.accessibility-high-contrast .priority-non-urgent
+{
+  border-left-color: #4EA3FF;
+}
+
+:root.accessibility-dark .status-badge,
+:root.accessibility-high-contrast .status-badge
+{
+  background: var(--secondary);
+  color: var(--text);
+  border: 1px solid var(--line);
 }
 
 .status

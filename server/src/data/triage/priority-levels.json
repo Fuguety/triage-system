@@ -1,0 +1,32 @@
+[
+  {
+    "id": "RESUSCITATION",
+    "name": "Immediate",
+    "color": "red",
+    "maxWaitingMinutes": 0
+  },
+  {
+    "id": "EMERGENT",
+    "name": "Very Urgent",
+    "color": "orange",
+    "maxWaitingMinutes": 10
+  },
+  {
+    "id": "URGENT",
+    "name": "Urgent",
+    "color": "yellow",
+    "maxWaitingMinutes": 60
+  },
+  {
+    "id": "LESS_URGENT",
+    "name": "Standard",
+    "color": "green",
+    "maxWaitingMinutes": 120
+  },
+  {
+    "id": "NON_URGENT",
+    "name": "Non-Urgent",
+    "color": "blue",
+    "maxWaitingMinutes": 240
+  }
+]

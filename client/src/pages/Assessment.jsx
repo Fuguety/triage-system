@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import "../styles/assessment.css"
-import { answerQuestion, startTriage } from "../services/triageService"
+import { answerQuestion, goBackQuestion, startTriage } from "../services/triageService"
 import { getPriorityMeta } from "../utils/priority"
 
 
@@ -20,6 +20,7 @@ function Assessment()
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [selectedAnswers, setSelectedAnswers] = useState([])
+  const [selectedMultiAnswers, setSelectedMultiAnswers] = useState([])
   const [showAnswerReview, setShowAnswerReview] = useState(false)
   const [actionLockSeconds, setActionLockSeconds] = useState(0)
   const [autoReturnSeconds, setAutoReturnSeconds] = useState(0)
@@ -140,6 +141,7 @@ function Assessment()
     setLoading(false)
     setSubmitting(false)
     setSelectedAnswers([])
+    setSelectedMultiAnswers([])
     setShowAnswerReview(false)
     setActionLockSeconds(0)
     setAutoReturnSeconds(0)
@@ -156,6 +158,7 @@ function Assessment()
       setError("")
       setResult(null)
       setSelectedAnswers([])
+      setSelectedMultiAnswers([])
       setShowAnswerReview(false)
       setActionLockSeconds(0)
       setAutoReturnSeconds(0)
@@ -171,6 +174,7 @@ function Assessment()
       setSessionId(data.sessionId)
       setPatientNumber(String(data.patientNumber))
       setQuestion(data.question)
+      setSelectedMultiAnswers([])
     }
     catch (requestError)
     {
@@ -187,7 +191,9 @@ function Assessment()
   async function handleAnswer(answerId)
   {
     const answeredQuestion = question
-    const selectedAnswer = answeredQuestion.answers.find(answer => answer.id === answerId)
+    const selectedAnswerLabels = Array.isArray(answerId)
+      ? answeredQuestion.answers.filter(answer => answerId.includes(answer.id)).map(answer => answer.label)
+      : answeredQuestion.answers.filter(answer => answer.id === answerId).map(answer => answer.label)
 
     try
     {
@@ -197,7 +203,7 @@ function Assessment()
       const data = await answerQuestion(sessionId, answerId)
       const answerRecord =
       {
-        answer: selectedAnswer ? selectedAnswer.label : answerId,
+        answer: selectedAnswerLabels.length ? selectedAnswerLabels.join(", ") : String(answerId),
         question: answeredQuestion.text
       }
 
@@ -213,6 +219,7 @@ function Assessment()
       }
 
       setQuestion(data.question)
+      setSelectedMultiAnswers([])
     }
     catch (requestError)
     {
@@ -232,6 +239,65 @@ function Assessment()
     setFullName("")
     setPatientId("")
     setHealthInsurance("")
+  }
+
+
+
+  function toggleMultiAnswer(answerId)
+  {
+    setSelectedMultiAnswers(currentAnswers =>
+    {
+      if (answerId === "none")
+      {
+        return currentAnswers.includes("none") ? [] : ["none"]
+      }
+
+      const answersWithoutNone = currentAnswers.filter(currentAnswer => currentAnswer !== "none")
+
+      if (answersWithoutNone.includes(answerId))
+      {
+        return answersWithoutNone.filter(currentAnswer => currentAnswer !== answerId)
+      }
+
+      return [...answersWithoutNone, answerId]
+    })
+  }
+
+
+
+  async function submitMultiAnswer()
+  {
+    await handleAnswer(selectedMultiAnswers)
+  }
+
+
+
+  async function backQuestion()
+  {
+    if (!sessionId || selectedAnswers.length === 0 || result)
+    {
+      return
+    }
+
+    try
+    {
+      setSubmitting(true)
+      setError("")
+
+      const data = await goBackQuestion(sessionId)
+
+      setQuestion(data.question)
+      setSelectedAnswers(currentAnswers => currentAnswers.slice(0, -1))
+      setSelectedMultiAnswers([])
+    }
+    catch (requestError)
+    {
+      setError(requestError.message)
+    }
+    finally
+    {
+      setSubmitting(false)
+    }
   }
 
 
@@ -326,6 +392,7 @@ function Assessment()
       && question.answers.some(answer => answer.id === "yes")
       && question.answers.some(answer => answer.id === "no")
     const answerGridClassName = isYesNoQuestion ? "answer-grid yes-no-answer-grid" : "answer-grid"
+    const isMultiSelectQuestion = question.type === "multi_select"
 
     return (
       <div className="container assessment-panel question-card">
@@ -337,20 +404,72 @@ function Assessment()
         <p className="question-label">Current question</p>
         <h3 className="question-title">{question.text}</h3>
 
-        <div className={answerGridClassName}>
-          {question.answers.map(answer => (
-            <button
-              aria-label={`${answer.label}. ${question.text}`}
-              className="answer-option"
-              disabled={submitting}
-              key={answer.id}
-              onClick={() => handleAnswer(answer.id)}
-              type="button"
-            >
-              {submitting ? "Submitting..." : answer.label}
-            </button>
-          ))}
-        </div>
+        {isMultiSelectQuestion ? renderMultiSelectAnswers() : (
+          <div className={answerGridClassName}>
+            {question.answers.map(answer => (
+              <button
+                aria-label={`${answer.label}. ${question.text}`}
+                className="answer-option"
+                disabled={submitting}
+                key={answer.id}
+                onClick={() => handleAnswer(answer.id)}
+                type="button"
+              >
+                {submitting ? "Submitting..." : answer.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {renderQuestionActions()}
+      </div>
+    )
+  }
+
+
+
+  function renderMultiSelectAnswers()
+  {
+    return (
+      <div className="answer-grid multi-answer-grid">
+        {question.answers.map(answer =>
+        {
+          const checked = selectedMultiAnswers.includes(answer.id)
+
+          return (
+            <label className={`answer-option checkbox-answer ${checked ? "selected-answer" : ""}`} key={answer.id}>
+              <input
+                checked={checked}
+                disabled={submitting}
+                onChange={() => toggleMultiAnswer(answer.id)}
+                type="checkbox"
+              />
+              <span>{answer.label}</span>
+            </label>
+          )
+        })}
+
+        <button disabled={submitting || selectedMultiAnswers.length === 0} onClick={submitMultiAnswer} type="button">
+          Continue
+        </button>
+      </div>
+    )
+  }
+
+
+
+  function renderQuestionActions()
+  {
+    if (selectedAnswers.length === 0)
+    {
+      return null
+    }
+
+    return (
+      <div className="hero-actions question-actions">
+        <button className="secondary-button" disabled={submitting} onClick={backQuestion} type="button">
+          Back Question
+        </button>
       </div>
     )
   }
@@ -449,6 +568,8 @@ function Assessment()
   {
     return (
       <div className="hero-actions result-actions">
+        <Link className="text-button" to="/">Exit to Main Menu</Link>
+
         <button disabled={actionLockSeconds > 0} onClick={restartAssessment} type="button">
           {actionLockSeconds > 0 ? `Start New Assessment (${actionLockSeconds}s)` : "Start New Assessment"}
         </button>
@@ -498,7 +619,9 @@ function Assessment()
   return (
     <div className="shell">
       <div className="page-header">
-        <Link aria-label="Back to Home" className="back-link" to="/">{"\u2190 Back"}</Link>
+        {question && !result && (
+          <Link aria-label="Cancel assessment and return to Home" className="back-link" to="/">Cancel Assessment</Link>
+        )}
 
         <div>
           <p className="eyebrow">Patient intake</p>

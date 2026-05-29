@@ -1,30 +1,59 @@
 const { pool } = require("../db/database");
-const triageFlow = require("../data/triage-flow.json");
+const triageFlow = require("../data/triage");
 
 const answerLabels =
 {
   adolescent: "13–17 years",
+  animal_allergy: "Animal allergy",
   asthma: "Asthma",
   cancer: "Cancer",
+  celiac_disease: "Celiac disease",
   chest_pain: "Chest pain",
   child: "0–12 years",
+  contrast_dye_allergy: "Contrast dye allergy",
   diabetes: "Diabetes",
   difficulty_breathing: "Breathing difficulty",
+  dust_allergy: "Dust allergy",
   elderly: "65+ years",
   epilepsy: "Epilepsy",
   fever: "Fever",
+  female: "Female",
+  food_allergy: "Food allergy",
+  four_to_seven_days: "4\u20137 days ago",
   general_pain: "Pain",
+  gluten_intolerance_sensitivity: "Gluten intolerance / sensitivity",
   heart_disease: "Heart disease",
   hypertension: "Hypertension",
+  insect_sting_allergy: "Insect sting allergy",
+  latex_allergy: "Latex allergy",
+  less_than_one_hour: "Less than 1 hour ago",
+  less_than_one_month: "Less than 1 month ago",
+  less_than_twelve_weeks: "Less than 12 weeks",
   lung_disease: "Lung disease",
+  male: "Male",
+  medication_allergy: "Medication allergy",
   middle_adult: "40–64 years",
+  mold_allergy: "Mold allergy",
+  more_than_one_month: "More than 1 month ago",
+  more_than_seven_days: "More than 7 days ago",
+  more_than_three_months: "More than 3 months ago",
   neurological_symptoms: "Neurological symptoms",
   none: "None",
+  not_applicable: "Not applicable",
+  not_sure: "Not sure",
+  one_to_three_days: "1\u20133 days ago",
+  one_to_three_months: "1\u20133 months ago",
+  one_to_twenty_four_hours: "1\u201324 hours ago",
   other: "Other",
   other_not_sure: "Other / not sure",
+  pollen_allergy: "Pollen allergy",
+  prefer_not_to_say: "Prefer not to say",
   pregnancy: "Pregnancy",
+  twelve_to_twenty_seven_weeks: "12\u201327 weeks",
+  twenty_eight_or_more_weeks: "28+ weeks",
   trauma_bleeding: "Trauma or bleeding",
   vomiting_dehydration: "Vomiting or dehydration",
+  wheat_allergy: "Wheat allergy",
   young_adult: "18–39 years"
 };
 
@@ -79,11 +108,14 @@ function buildChoiceAnswers(options)
 
 function buildGlobalQuestion(question)
 {
+  const questionType = question.type === "multi_select" ? "multi_select" : "single_select";
+
   if (question.type === "yes_no")
   {
     return {
       id: question.id,
       text: question.text,
+      type: questionType,
       answers: buildYesNoAnswers()
     };
   }
@@ -91,6 +123,7 @@ function buildGlobalQuestion(question)
   return {
     id: question.id,
     text: question.text,
+    type: questionType,
     answers: buildChoiceAnswers(question.options || [])
   };
 }
@@ -102,6 +135,7 @@ function buildRedFlagQuestion(redFlag)
   return {
     id: redFlag.id,
     text: redFlag.text,
+    type: "single_select",
     answers: buildYesNoAnswers()
   };
 }
@@ -113,6 +147,7 @@ function buildFlowQuestion(questionId, node)
   return {
     id: questionId,
     text: node.text,
+    type: "single_select",
     answers: buildYesNoAnswers()
   };
 }
@@ -196,6 +231,11 @@ function findQuestion(questionId)
 
 function validateAnswer(question, answerId)
 {
+  if (question.type === "multi_select")
+  {
+    return validateMultipleAnswers(question, answerId);
+  }
+
   const selectedAnswer = question.answers.find(answer => answer.id === answerId);
 
   if (!selectedAnswer)
@@ -208,9 +248,42 @@ function validateAnswer(question, answerId)
 
 
 
+function validateMultipleAnswers(question, answerIds)
+{
+  if (!Array.isArray(answerIds) || answerIds.length === 0)
+  {
+    throw createError("Invalid answer", 400);
+  }
+
+  const uniqueAnswerIds = [...new Set(answerIds)];
+  const selectedAnswers = uniqueAnswerIds.map(answerId =>
+  {
+    const selectedAnswer = question.answers.find(answer => answer.id === answerId);
+
+    if (!selectedAnswer)
+    {
+      throw createError("Invalid answer", 400);
+    }
+
+    return selectedAnswer;
+  });
+
+  if (uniqueAnswerIds.includes("none") && uniqueAnswerIds.length > 1)
+  {
+    throw createError("Invalid answer", 400);
+  }
+
+  return selectedAnswers;
+}
+
+
+
 function buildSymptomsSummary(existingSummary, question, answer)
 {
-  const entry = `${question.id}: ${answer.id}`;
+  const answerValue = Array.isArray(answer)
+    ? answer.map(selectedAnswer => selectedAnswer.id).join(",")
+    : answer.id;
+  const entry = `${question.id}: ${answerValue}`;
 
   if (!existingSummary)
   {
@@ -238,6 +311,37 @@ function findAnswerInSummary(symptomsSummary, questionId)
   }
 
   return matchingEntry.slice(questionId.length + 2);
+}
+
+
+
+function removeLastSummaryEntry(symptomsSummary)
+{
+  if (!symptomsSummary)
+  {
+    return null;
+  }
+
+  const entries = symptomsSummary.split("\n");
+
+  entries.pop();
+
+  return entries.length ? entries.join("\n") : null;
+}
+
+
+
+function getLastAnsweredQuestionId(symptomsSummary)
+{
+  if (!symptomsSummary)
+  {
+    return null;
+  }
+
+  const entries = symptomsSummary.split("\n");
+  const lastEntry = entries[entries.length - 1];
+
+  return lastEntry ? lastEntry.split(": ")[0] : null;
 }
 
 
@@ -277,6 +381,24 @@ function getComplaintStartQuestionId(symptomsSummary)
 
 function getNextGlobalQuestionId(questionRecord, symptomsSummary)
 {
+  if (questionRecord.rawQuestion.nextByAnswer)
+  {
+    return questionRecord.rawQuestion.nextByAnswer[findAnswerInSummary(symptomsSummary, questionRecord.rawQuestion.id)];
+  }
+
+  if (questionRecord.rawQuestion.nextBySummary)
+  {
+    const summaryRule = questionRecord.rawQuestion.nextBySummary;
+    const summaryAnswer = findAnswerInSummary(symptomsSummary, summaryRule.questionId);
+
+    return summaryRule.answers[summaryAnswer] || summaryRule.default;
+  }
+
+  if (questionRecord.rawQuestion.next)
+  {
+    return questionRecord.rawQuestion.next;
+  }
+
   const nextQuestion = triageFlow.globalQuestions[questionRecord.index + 1];
 
   if (nextQuestion)
@@ -502,6 +624,52 @@ async function answerQuestion(sessionId, answerId)
 
 
 
+async function goBackQuestion(sessionId)
+{
+  const session = await fetchSession(sessionId);
+
+  if (!session)
+  {
+    throw createError("Session not found", 404);
+  }
+
+  if (session.status === "completed")
+  {
+    throw createError("Session already completed", 409);
+  }
+
+  const previousQuestionId = getLastAnsweredQuestionId(session.symptoms_summary);
+
+  if (!previousQuestionId)
+  {
+    throw createError("No previous question", 400);
+  }
+
+  const previousQuestion = findQuestion(previousQuestionId);
+
+  if (!previousQuestion)
+  {
+    throw createError("Invalid session state", 500);
+  }
+
+  const symptomsSummary = removeLastSummaryEntry(session.symptoms_summary);
+
+  await pool.query(
+    `UPDATE triage_sessions
+    SET current_question = $1,
+      symptoms_summary = $2
+    WHERE session_id = $3`,
+    [previousQuestionId, symptomsSummary, sessionId]
+  );
+
+  return {
+    done: false,
+    question: previousQuestion.question
+  };
+}
+
+
+
 async function resetTriageSessions()
 {
   await pool.query("DELETE FROM queue");
@@ -516,6 +684,7 @@ async function resetTriageSessions()
 module.exports =
 {
   answerQuestion,
+  goBackQuestion,
   resetTriageSessions,
   startTriage
 };

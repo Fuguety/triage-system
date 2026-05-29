@@ -148,11 +148,13 @@ test("returns queue data from the controller", async () =>
 {
   const session = await triageService.startTriage();
 
+  await triageService.answerQuestion(session.sessionId, "other");
   await triageService.answerQuestion(session.sessionId, "young_adult");
-  await triageService.answerQuestion(session.sessionId, "fever");
-  await triageService.answerQuestion(session.sessionId, "yes");
-  await triageService.answerQuestion(session.sessionId, "none");
   await triageService.answerQuestion(session.sessionId, "no");
+  await triageService.answerQuestion(session.sessionId, "no");
+  await triageService.answerQuestion(session.sessionId, ["none"]);
+  await triageService.answerQuestion(session.sessionId, "fever");
+  await triageService.answerQuestion(session.sessionId, "one_to_twenty_four_hours");
 
   const result = await triageService.answerQuestion(session.sessionId, "yes");
 

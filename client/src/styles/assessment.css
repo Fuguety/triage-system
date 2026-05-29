@@ -71,6 +71,32 @@
   opacity: 0.72;
 }
 
+.multi-answer-grid
+{
+  gap: 14px;
+}
+
+.checkbox-answer
+{
+  gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+}
+
+.checkbox-answer input
+{
+  width: 22px;
+  height: 22px;
+  accent-color: var(--primary);
+}
+
+.selected-answer
+{
+  border-color: var(--primary);
+  background: rgba(25, 118, 210, 0.08);
+}
+
 .yes-no-answer-grid .answer-option
 {
   align-items: center;
@@ -174,6 +200,11 @@
 .result-actions > *
 {
   min-width: 190px;
+}
+
+.question-actions
+{
+  margin-top: 24px;
 }
 
 @media (max-width: 720px)
