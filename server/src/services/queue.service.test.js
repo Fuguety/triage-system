@@ -119,6 +119,7 @@ test("returns gender and pregnancy details for staff review", async () =>
   const patient = await queueService.getPatient(session.sessionId);
 
   assert.equal(patient.gender, "Female");
+  assert.equal(patient.age, "18\u201339 years");
   assert.equal(patient.pregnancyStatus, "Yes");
   assert.equal(patient.pregnancyDetails, "12\u201327 weeks");
 });

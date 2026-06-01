@@ -1,52 +1,67 @@
 # Triage Support System
 
-Web-based medical triage support system developed for a university thesis.
+Web-based hospital triage support system developed for a university final degree project.
 
-The platform helps collect patient intake data, guide patients through structured symptom questions, assign a triage priority, and organize the queue for hospital staff. It supports medical workflow, but it does not provide diagnoses.
+The application collects patient intake data, guides patients through a structured questionnaire, calculates a preliminary priority level, and helps hospital staff manage the active queue. It is a decision-support prototype and does not provide diagnoses.
 
-## Current Stack
+## Project
 
-### Frontend
+**Title:** Digital hospital triage system for automated patient prioritization
 
-- React
-- Vite
-- React Router
+**Stack:**
 
-### Backend
+- Frontend: React + Vite
+- Backend: Node.js + Express
+- Database: PostgreSQL + Docker
+- Backend module style: JavaScript CommonJS
+- Future AI integration target: Python / Hugging Face service
 
-- Node.js
-- Express
-- CommonJS
-
-### Database
-
-- PostgreSQL
-- Docker Compose for the PostgreSQL container only
-
-## Current Architecture
+## Architecture
 
 ```text
 React frontend
       |
       v
-Node.js API
+Node.js + Express API
       |
       v
-Rule-based triage service
+JSON-based triage service
       |
       v
 PostgreSQL
 ```
 
+Backend folders:
+
+- `routers`
+- `controllers`
+- `services`
+- `db`
+- `data`
+
 ## Main Features
 
-- Patient intake with optional anonymous flow
-- Rule-based triage questionnaire
-- Five urgency levels
-- Queue ordering by priority
-- Hospital staff login and admin panel
-- Audit log
-- PostgreSQL connection and schema bootstrap
+- Patient-facing triage questionnaire
+- Optional anonymous patient intake
+- Gender, age, pregnancy, allergy, condition, symptom, and onset intake
+- Multi-select allergies and medical conditions
+- Back Question support before final submission
+- JSON-based triage flow
+- Conditional skip logic for repeated clinical context
+- Locked and provisional priority calculation
+- Five-level priority classification
+- Public queue position view
+- Staff/admin login
+- Admin queue management
+- Patient assessment workspace
+- Staff priority adjustment with audit logging
+- Complete/reject case workflow
+- Audit logs
+- Accessibility display modes:
+  - Default
+  - Dark Mode
+  - High Contrast Mode
+  - Dyslexia-Friendly Mode
 
 ## Priority Levels
 
@@ -56,48 +71,104 @@ PostgreSQL
 - `LESS_URGENT`
 - `NON_URGENT`
 
-## Where The Questions Are Stored
+Priority behavior:
 
-The current triage questions are hardcoded in:
+- `lockedPriority` is used only for true critical emergencies and cannot be downgraded.
+- `provisionalPriority` is used for warning signs that require more context.
+- `priorityAdjustment` can raise or lower provisional priority after follow-up answers.
+- Final priority is saved only when the questionnaire completes.
 
-- [server/src/services/triage.service.js](/c:/Users/lucze/UNI/THESIS/triage-system/server/src/services/triage.service.js)
+## Triage Flow Data
 
-They are stored in the `questions` object.
+The triage flow is JSON-based and stored in:
 
-## Where The Priority Logic Is
+- `server/src/data/triage/priority-levels.json`
+- `server/src/data/triage/intake-flow.json`
+- `server/src/data/triage/allergy-options.json`
+- `server/src/data/triage/medical-conditions.json`
+- `server/src/data/triage/complaint-flows.json`
+- `server/src/data/triage/terminal-nodes.json`
+- `server/src/data/triage/index.js`
 
-The current rule-based priority logic is also in:
+`server/src/data/triage/index.js` combines the split files into the structure consumed by:
 
-- [server/src/services/triage.service.js](/c:/Users/lucze/UNI/THESIS/triage-system/server/src/services/triage.service.js)
+- `server/src/services/triage.service.js`
 
-Important parts:
+## Triage Logic
 
-- `questions`: controls the question flow
-- `priorityMap`: maps terminal `END_*` values to final urgency levels
-- `answerQuestion()`: decides whether the next answer moves to another question or ends triage with a final priority
+Triage service responsibilities:
 
-## Queue Logic
+- Starts a new patient/session.
+- Stores the current question in `triage_sessions.current_question`.
+- Validates answers.
+- Supports single-select and multi-select questions.
+- Stores answers in `symptoms_summary`.
+- Applies conditional skip logic when answers can be derived from intake.
+- Adds clinically relevant derived facts to `symptoms_summary`.
+- Tracks locked and provisional priority from the answer path.
+- Saves final `priority_level` and `completed_at`.
+
+Derived flags include:
+
+- `isChild`
+- `isAdult`
+- `isElderly`
+- `isPregnant`
+- `pregnancyUnknown`
+- `hasDiabetes`
+- `hasAsthma`
+- `hasLungDisease`
+- `hasHeartDisease`
+- `hasCancer`
+- `hasAllergies`
+- `hasSevereOnset`
+- `onsetMoreThan24Hours`
+- `onsetMoreThan7Days`
+- `onsetMoreThan1Month`
+
+## Queue And Admin Logic
 
 Queue logic is handled in:
 
-- [server/src/services/queue.service.js](/c:/Users/lucze/UNI/THESIS/triage-system/server/src/services/queue.service.js)
+- `server/src/services/queue.service.js`
 
 It is responsible for:
 
-- inserting patients into the queue
-- sorting by priority
-- keeping first-come, first-served inside the same level
-- separating public queue visibility from admin workflow states
+- Inserting completed assessments into the queue.
+- Ordering active patients by priority.
+- Keeping first-come, first-served ordering inside the same priority level.
+- Returning public queue data.
+- Returning staff/admin patient context.
+- Updating patient details.
+- Updating staff-adjusted priority.
+- Keeping queue status compatible with admin workflow.
 
-## Database Files
+Admin audit behavior records important staff actions, including priority changes with previous and new priority values.
 
-- Docker config: [docker-compose.yml](/c:/Users/lucze/UNI/THESIS/triage-system/docker-compose.yml)
-- DB connection: [server/src/db/database.js](/c:/Users/lucze/UNI/THESIS/triage-system/server/src/db/database.js)
-- Schema: [server/src/db/schema.sql](/c:/Users/lucze/UNI/THESIS/triage-system/server/src/db/schema.sql)
+## Patient Context
 
-## SQL Tables
+Admin and review screens expose patient context derived from the assessment summary:
 
-The PostgreSQL schema currently creates:
+- Gender
+- Age
+- Pregnancy status when relevant
+- Pregnancy duration when pregnant
+- Last period when relevant
+- Allergies
+- Medical conditions
+
+## Database
+
+Docker config:
+
+- `docker-compose.yml`
+
+Database files:
+
+- `server/src/db/database.js`
+- `server/src/db/schema.sql`
+
+Tables:
 
 - `patients`
 - `triage_sessions`
@@ -105,19 +176,30 @@ The PostgreSQL schema currently creates:
 - `audit_logs`
 - `hospitals`
 
+Default Docker PostgreSQL settings:
+
+- Database: `triage_system`
+- User: `postgres`
+- Password: `postgres`
+- Port: `5432`
+
 ## API Routes
 
-### Public
+Public routes:
 
 - `GET /health`
 - `POST /triage/start`
 - `POST /triage/answer`
+- `POST /triage/back`
 - `GET /triage/queue`
 
-### Admin / Hospital
+Authentication routes:
 
 - `POST /auth/register`
 - `POST /auth/login`
+
+Admin routes:
+
 - `GET /admin/queue`
 - `GET /admin/queue/:sessionId`
 - `PATCH /admin/queue/:sessionId`
@@ -128,25 +210,33 @@ The PostgreSQL schema currently creates:
 
 ## Run The Project
 
-### 1. Start PostgreSQL
+Install dependencies from the root, server, and client folders if needed:
 
 ```bash
-docker compose up -d
-```
-
-PostgreSQL runs with:
-
-- database: `triage_system`
-- user: `postgres`
-- password: `postgres`
-- port: `5432`
-
-### 2. Start Backend
-
-```bash
+npm install
 cd server
 npm install
+cd ../client
+npm install
+```
+
+Start PostgreSQL:
+
+```bash
+npm run db
+```
+
+Start backend and frontend together from the root:
+
+```bash
 npm run dev
+```
+
+Or start them separately:
+
+```bash
+npm run dev:server
+npm run dev:client
 ```
 
 Backend default URL:
@@ -155,36 +245,35 @@ Backend default URL:
 http://localhost:5000
 ```
 
-### 3. Start Frontend
-
-```bash
-cd client
-npm install
-npm run dev
-```
-
 Frontend default URL:
 
 ```text
 http://localhost:5173
 ```
 
+## Tests And Build
+
+Run backend tests:
+
+```bash
+cd server
+npm test
+```
+
+Build frontend:
+
+```bash
+cd client
+npm run build
+```
+
 ## Current Limitations
 
-- triage questions are still hardcoded
-- triage logic is still rule-based placeholder logic
-- Triage, queue, audit, and hospital authentication data now use PostgreSQL persistence
-- no Python AI model yet
-- no production deployment yet
-
-## Planned Next Steps
-
-- move active runtime data fully into PostgreSQL
-- store patient sessions and answers persistently
-- replace hardcoded questions with configurable data
-- add a future decision-tree / AI engine
-- improve clinical traceability and reporting
+- Triage is rule-based and JSON-driven, not AI-driven.
+- The system is not a certified medical device.
+- No Python/Hugging Face AI service is connected yet.
+- No production deployment configuration is included yet.
 
 ## Thesis Note
 
-This system is a decision-support prototype for academic use. It is intended to assist staff with prioritization and workflow, not replace professional medical judgment.
+This system is an academic decision-support prototype. It is intended to assist patient prioritization and staff workflow, not replace clinical judgment by trained medical professionals.

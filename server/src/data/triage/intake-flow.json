@@ -99,7 +99,10 @@
     "type": "yes_no",
     "text": "Do you have testicular pain, swelling, or sudden urinary problems?",
     "nextByAnswer": {
-      "yes": "allergies",
+      "yes": {
+        "provisionalPriority": "URGENT",
+        "next": "allergies"
+      },
       "no": "allergies"
     }
   },
@@ -160,7 +163,7 @@
     "nextBySummary": {
       "questionId": "male_specific_warning",
       "answers": {
-        "yes": "END_URGENT"
+        "yes": "unconscious_or_unresponsive"
       },
       "default": "unconscious_or_unresponsive"
     }

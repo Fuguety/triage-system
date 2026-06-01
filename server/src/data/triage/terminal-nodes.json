@@ -18,5 +18,8 @@
   "END_NON_URGENT": {
     "done": true,
     "priority": "NON_URGENT"
+  },
+  "END_FLOW": {
+    "done": true
   }
 }

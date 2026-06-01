@@ -538,14 +538,30 @@ function Admin()
 
   function renderPatientDetails(patient)
   {
+    const contextItems = [
+      { label: "Gender", value: patient.gender },
+      { label: "Age", value: patient.age },
+      { label: "Pregnancy status", value: patient.pregnancyStatus },
+      { label: "Pregnancy duration", value: patient.pregnancyDetails },
+      { label: "Last period", value: patient.lastPeriod },
+      { label: "Allergies", value: patient.allergies || "Not provided" },
+      { label: "Medical conditions", value: patient.medicalConditions || "Not provided" }
+    ].filter(item => item.value)
+
     return (
       <div className="admin-card-details">
-        <div className="queue-summary-grid patient-clinical-summary">
-          <span>Gender: {patient.gender || "Not recorded"}</span>
-          {patient.pregnancyStatus && <span>Pregnancy status: {patient.pregnancyStatus}</span>}
-          {patient.pregnancyDetails && <span>Pregnancy duration: {patient.pregnancyDetails}</span>}
-          {patient.lastPeriod && <span>Last period: {patient.lastPeriod}</span>}
-        </div>
+        <section className="patient-context patient-clinical-summary" aria-label="Patient context">
+          <p className="question-label">Patient context</p>
+
+          <div className="patient-context-grid">
+            {contextItems.map(item => (
+              <div className="patient-context-badge" key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
+            ))}
+          </div>
+        </section>
 
         {renderPatientForm(patient)}
         {renderPatientActions(patient)}
@@ -573,6 +589,7 @@ function Admin()
             <div className="queue-summary-grid">
               <span>Patient #{patient.patientNumber}</span>
               <span>Gender: {patient.gender || "Not recorded"}</span>
+              <span>Age: {patient.age || "Not recorded"}</span>
               <span>{priorityMeta.icon} {priorityMeta.level} - {priorityMeta.label}</span>
               <span className="status-tag">{patient.status}</span>
             </div>

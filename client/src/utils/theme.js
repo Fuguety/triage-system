@@ -32,6 +32,7 @@ const ACCESSIBILITY_MODE_VARIABLES =
     "--primary": "#4EA3FF",
     "--primary-hover": "#7CB7FF",
     "--secondary": "#26394C",
+    "--secondary-hover": "#31475D",
     "--shadow": "0 18px 50px rgba(0, 0, 0, 0.35)"
   },
   high_contrast:
@@ -46,6 +47,7 @@ const ACCESSIBILITY_MODE_VARIABLES =
     "--primary": "#005FCC",
     "--primary-hover": "#003F88",
     "--secondary": "#FFFFFF",
+    "--secondary-hover": "#E8E8E8",
     "--shadow": "none"
   }
 }
@@ -82,6 +84,8 @@ export function applyTheme(theme)
   root.style.setProperty("--muted", theme.muted || DEFAULT_THEME.muted)
   root.style.setProperty("--primary", theme.primary || DEFAULT_THEME.primary)
   root.style.setProperty("--primary-hover", theme.primary || DEFAULT_THEME.primary)
+  root.style.setProperty("--secondary", "#E7EDF4")
+  root.style.setProperty("--secondary-hover", "#D9E3EE")
   root.style.setProperty("--surface-radius", `${theme.radius || DEFAULT_THEME.radius}px`)
 }
 

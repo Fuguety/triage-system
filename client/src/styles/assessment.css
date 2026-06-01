@@ -97,6 +97,18 @@
   background: rgba(25, 118, 210, 0.08);
 }
 
+:root.accessibility-dark .selected-answer
+{
+  background: #203245;
+  border-color: #7CB7FF;
+  color: #F4F8FB;
+}
+
+:root.accessibility-dark .selected-answer span
+{
+  color: #F4F8FB;
+}
+
 .yes-no-answer-grid .answer-option
 {
   align-items: center;
@@ -171,6 +183,12 @@
   background: rgba(255, 255, 255, 0.72);
 }
 
+:root.accessibility-dark .answer-review li
+{
+  background: #1B2A38;
+  border-color: #4B6072;
+}
+
 .answer-review span
 {
   color: var(--muted);
@@ -181,6 +199,55 @@
 {
   color: var(--text);
   font-size: 1.05rem;
+}
+
+.result-patient-context
+{
+  display: grid;
+  gap: 12px;
+  margin: 24px 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+}
+
+.patient-context-grid
+{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.patient-context-badge
+{
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.patient-context-badge span
+{
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.patient-context-badge strong
+{
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+:root.accessibility-dark .result-patient-context,
+:root.accessibility-dark .patient-context-badge
+{
+  background: #1B2A38;
+  border-color: #4B6072;
 }
 
 .cooldown-copy

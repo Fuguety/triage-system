@@ -208,6 +208,7 @@ function AdminPatient()
   {
     const contextItems = [
       { label: "Gender", value: patient.gender },
+      { label: "Age", value: patient.age },
       { label: "Pregnancy status", value: patient.pregnancyStatus },
       { label: "Pregnancy duration", value: patient.pregnancyDetails },
       { label: "Last period", value: patient.lastPeriod },

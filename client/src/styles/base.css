@@ -11,6 +11,7 @@
   --primary-hover: #125EA2;
   --surface-radius: 24px;
   --secondary: #E7EDF4;
+  --secondary-hover: #D9E3EE;
   --shadow: 0 18px 50px rgba(12, 28, 45, 0.1);
 }
 
@@ -161,7 +162,7 @@ button:disabled
 
 .secondary-button:hover
 {
-  background-color: #D9E3EE;
+  background-color: var(--secondary-hover);
 }
 
 .danger-button
@@ -201,7 +202,7 @@ button:disabled
 
 .text-button:hover
 {
-  background-color: #D9E3EE;
+  background-color: var(--secondary-hover);
 }
 
 .back-link
@@ -359,14 +360,14 @@ textarea:focus-visible
 :root.accessibility-dark button:not(.secondary-button):not(.danger-button):not(.success-button)
 {
   color: #07111D;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 :root.accessibility-dark .secondary-button:hover,
 :root.accessibility-dark .text-button:hover,
 :root.accessibility-dark .back-link:hover
 {
-  background: #31475D;
+  background: var(--secondary-hover);
   color: #FFFFFF;
 }
 

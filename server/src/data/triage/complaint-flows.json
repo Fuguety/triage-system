@@ -3,207 +3,368 @@
     {
       "id": "unconscious_or_unresponsive",
       "text": "Are you unconscious or unresponsive?",
-      "yesPriority": "RESUSCITATION"
+      "lockedPriority": "RESUSCITATION",
+      "next": "END_FLOW"
     },
     {
       "id": "severe_breathing_difficulty",
       "text": "Are you having severe difficulty breathing?",
-      "yesPriority": "RESUSCITATION"
+      "lockedPriority": "RESUSCITATION",
+      "next": "END_FLOW"
     },
     {
       "id": "severe_bleeding",
       "text": "Are you bleeding severely or uncontrollably?",
-      "yesPriority": "RESUSCITATION"
+      "lockedPriority": "RESUSCITATION",
+      "next": "END_FLOW"
     },
     {
       "id": "sudden_confusion",
       "text": "Are you suddenly confused or unable to speak normally?",
-      "yesPriority": "EMERGENT"
+      "provisionalPriority": "EMERGENT"
     },
     {
       "id": "stroke_signs",
       "text": "Do you have facial drooping, weakness on one side, or sudden difficulty speaking?",
-      "yesPriority": "EMERGENT"
+      "provisionalPriority": "EMERGENT"
     },
     {
       "id": "sudden_fainting",
       "text": "Did you faint suddenly without a clear reason?",
-      "yesPriority": "EMERGENT"
+      "provisionalPriority": "EMERGENT"
     }
   ],
   "flows": {
     "difficulty_breathing": {
       "start": "breathing_1",
+      "defaultPriority": "LESS_URGENT",
       "nodes": {
         "breathing_1": {
           "text": "Are you struggling to breathe or unable to speak full sentences?",
-          "yes": "END_RESUSCITATION",
+          "yes": {
+            "lockedPriority": "RESUSCITATION",
+            "next": "END_FLOW"
+          },
           "no": "breathing_2"
         },
         "breathing_2": {
           "text": "Do your lips, fingers, or toes look bluish?",
-          "yes": "END_EMERGENT",
+          "yes": {
+            "provisionalPriority": "EMERGENT",
+            "next": "breathing_3"
+          },
           "no": "breathing_3"
         },
         "breathing_3": {
           "text": "Do you have asthma or a known lung disease?",
-          "yes": "END_URGENT",
+          "skipIfKnown": true,
+          "deriveFrom": [
+            "hasAsthma",
+            "hasLungDisease"
+          ],
+          "condition": "any",
+          "yes": {
+            "provisionalPriority": "URGENT",
+            "next": "breathing_4"
+          },
           "no": "breathing_4"
         },
         "breathing_4": {
           "text": "Did your breathing difficulty start suddenly?",
-          "yes": "END_URGENT",
-          "no": "END_LESS_URGENT"
+          "yes": {
+            "priorityAdjustment": "URGENT",
+            "next": "END_FLOW"
+          },
+          "no": {
+            "priorityAdjustment": "LESS_URGENT",
+            "next": "END_FLOW"
+          }
         }
       }
     },
     "chest_pain": {
       "start": "chest_1",
+      "defaultPriority": "LESS_URGENT",
       "nodes": {
         "chest_1": {
           "text": "Is your chest pain severe or crushing?",
-          "yes": "END_EMERGENT",
+          "yes": {
+            "provisionalPriority": "EMERGENT",
+            "next": "chest_2"
+          },
           "no": "chest_2"
         },
         "chest_2": {
           "text": "Does your pain spread to your arm, jaw, back, or neck?",
-          "yes": "END_EMERGENT",
+          "yes": {
+            "provisionalPriority": "EMERGENT",
+            "next": "chest_3"
+          },
           "no": "chest_3"
         },
         "chest_3": {
           "text": "Are you sweating, pale, nauseous, or short of breath?",
-          "yes": "END_EMERGENT",
+          "yes": {
+            "provisionalPriority": "EMERGENT",
+            "next": "chest_4"
+          },
           "no": "chest_4"
         },
         "chest_4": {
           "text": "Do you have heart disease, hypertension, diabetes, or high cholesterol?",
-          "yes": "END_URGENT",
-          "no": "END_LESS_URGENT"
+          "skipIfKnown": true,
+          "deriveFrom": [
+            "hasHeartDisease",
+            "hasHypertension",
+            "hasDiabetes"
+          ],
+          "condition": "any",
+          "yes": {
+            "priorityAdjustment": "URGENT",
+            "next": "END_FLOW"
+          },
+          "no": {
+            "priorityAdjustment": "LESS_URGENT",
+            "next": "END_FLOW"
+          }
         }
       }
     },
     "fever": {
       "start": "fever_1",
+      "defaultPriority": "LESS_URGENT",
       "nodes": {
         "fever_1": {
           "text": "Are you confused, very sleepy, or difficult to wake?",
-          "yes": "END_EMERGENT",
+          "yes": {
+            "provisionalPriority": "EMERGENT",
+            "next": "fever_2"
+          },
           "no": "fever_2"
         },
         "fever_2": {
           "text": "Is your fever very high or continuing despite medication?",
-          "yes": "END_URGENT",
+          "yes": {
+            "provisionalPriority": "URGENT",
+            "next": "fever_3"
+          },
           "no": "fever_3"
         },
         "fever_3": {
           "text": "Has your fever lasted more than 5 days?",
-          "yes": "END_URGENT",
+          "skipIfKnown": true,
+          "deriveFrom": [
+            "onsetMoreThan7Days"
+          ],
+          "condition": "onsetMoreThan7Days",
+          "yes": {
+            "provisionalPriority": "URGENT",
+            "next": "fever_4"
+          },
           "no": "fever_4"
         },
         "fever_4": {
           "text": "Are you under 18, 65 or older, pregnant, or immunocompromised?",
-          "yes": "END_URGENT",
-          "no": "END_LESS_URGENT"
+          "skipIfKnown": true,
+          "deriveFrom": [
+            "isChild",
+            "isElderly",
+            "isPregnant",
+            "pregnancyUnknown",
+            "hasCancer"
+          ],
+          "condition": "any",
+          "yes": {
+            "priorityAdjustment": "URGENT",
+            "next": "END_FLOW"
+          },
+          "no": {
+            "priorityAdjustment": "LESS_URGENT",
+            "next": "END_FLOW"
+          }
         }
       }
     },
     "neurological_symptoms": {
       "start": "neuro_1",
+      "defaultPriority": "LESS_URGENT",
       "nodes": {
         "neuro_1": {
           "text": "Do you have facial drooping, weakness on one side, or sudden difficulty speaking?",
-          "yes": "END_EMERGENT",
+          "yes": {
+            "provisionalPriority": "EMERGENT",
+            "next": "neuro_2"
+          },
           "no": "neuro_2"
         },
         "neuro_2": {
           "text": "Did your symptoms start suddenly?",
-          "yes": "END_EMERGENT",
+          "yes": {
+            "provisionalPriority": "EMERGENT",
+            "next": "neuro_3"
+          },
           "no": "neuro_3"
         },
         "neuro_3": {
           "text": "Are you confused or not oriented?",
-          "yes": "END_EMERGENT",
+          "yes": {
+            "provisionalPriority": "EMERGENT",
+            "next": "neuro_4"
+          },
           "no": "neuro_4"
         },
         "neuro_4": {
           "text": "Did you have a seizure or sudden fainting?",
-          "yes": "END_URGENT",
-          "no": "END_LESS_URGENT"
+          "yes": {
+            "priorityAdjustment": "URGENT",
+            "next": "END_FLOW"
+          },
+          "no": {
+            "priorityAdjustment": "LESS_URGENT",
+            "next": "END_FLOW"
+          }
         }
       }
     },
     "vomiting_dehydration": {
       "start": "vomiting_1",
+      "defaultPriority": "NON_URGENT",
       "nodes": {
         "vomiting_1": {
           "text": "Are you vomiting everything, including water?",
-          "yes": "END_URGENT",
+          "yes": {
+            "provisionalPriority": "URGENT",
+            "next": "vomiting_2"
+          },
           "no": "vomiting_2"
         },
         "vomiting_2": {
           "text": "Do you have signs of dehydration, such as a very dry mouth, no tears, intense thirst, or reduced urination?",
-          "yes": "END_URGENT",
+          "yes": {
+            "provisionalPriority": "URGENT",
+            "next": "vomiting_3"
+          },
           "no": "vomiting_3"
         },
         "vomiting_3": {
           "text": "Are you under 18, 65 or older, pregnant, or diabetic?",
-          "yes": "END_URGENT",
+          "skipIfKnown": true,
+          "deriveFrom": [
+            "isChild",
+            "isElderly",
+            "isPregnant",
+            "pregnancyUnknown",
+            "hasDiabetes"
+          ],
+          "condition": "any",
+          "yes": {
+            "provisionalPriority": "URGENT",
+            "next": "vomiting_4"
+          },
           "no": "vomiting_4"
         },
         "vomiting_4": {
           "text": "Has your vomiting lasted more than 24 hours?",
-          "yes": "END_LESS_URGENT",
-          "no": "END_NON_URGENT"
+          "skipIfKnown": true,
+          "deriveFrom": [
+            "onsetMoreThan24Hours"
+          ],
+          "condition": "onsetMoreThan24Hours",
+          "yes": {
+            "priorityAdjustment": "LESS_URGENT",
+            "next": "END_FLOW"
+          },
+          "no": {
+            "priorityAdjustment": "NON_URGENT",
+            "next": "END_FLOW"
+          }
         }
       }
     },
     "trauma_bleeding": {
       "start": "trauma_1",
+      "defaultPriority": "LESS_URGENT",
       "nodes": {
         "trauma_1": {
           "text": "Are you bleeding severely or uncontrollably?",
-          "yes": "END_RESUSCITATION",
+          "yes": {
+            "lockedPriority": "RESUSCITATION",
+            "next": "END_FLOW"
+          },
           "no": "trauma_2"
         },
         "trauma_2": {
           "text": "Did you have major trauma, a fall from height, or a high-speed accident?",
-          "yes": "END_EMERGENT",
+          "yes": {
+            "provisionalPriority": "EMERGENT",
+            "next": "trauma_3"
+          },
           "no": "trauma_3"
         },
         "trauma_3": {
           "text": "Do you have a deformity, an open fracture, or trouble moving the injured limb?",
-          "yes": "END_URGENT",
+          "yes": {
+            "provisionalPriority": "URGENT",
+            "next": "trauma_4"
+          },
           "no": "trauma_4"
         },
         "trauma_4": {
           "text": "Is your pain moderate to severe?",
-          "yes": "END_URGENT",
-          "no": "END_LESS_URGENT"
+          "yes": {
+            "priorityAdjustment": "URGENT",
+            "next": "END_FLOW"
+          },
+          "no": {
+            "priorityAdjustment": "LESS_URGENT",
+            "next": "END_FLOW"
+          }
         }
       }
     },
     "general_pain": {
       "start": "pain_1",
+      "defaultPriority": "LESS_URGENT",
       "nodes": {
         "pain_1": {
           "text": "Is your pain sudden and severe?",
-          "yes": "END_URGENT",
+          "yes": {
+            "provisionalPriority": "URGENT",
+            "next": "pain_2"
+          },
           "no": "pain_2"
         },
         "pain_2": {
           "text": "Do you also have fever, vomiting, fainting, or confusion?",
-          "yes": "END_URGENT",
+          "yes": {
+            "provisionalPriority": "URGENT",
+            "next": "pain_3"
+          },
           "no": "pain_3"
         },
         "pain_3": {
           "text": "Has your pain been getting worse quickly?",
-          "yes": "END_URGENT",
+          "yes": {
+            "provisionalPriority": "URGENT",
+            "next": "pain_4"
+          },
           "no": "pain_4"
         },
         "pain_4": {
           "text": "Has your pain lasted for more than one month without suddenly getting worse?",
-          "yes": "END_NON_URGENT",
-          "no": "END_LESS_URGENT"
+          "skipIfKnown": true,
+          "deriveFrom": [
+            "onsetMoreThan1Month"
+          ],
+          "condition": "onsetMoreThan1Month",
+          "yes": {
+            "priorityAdjustment": "NON_URGENT",
+            "next": "END_FLOW"
+          },
+          "no": {
+            "priorityAdjustment": "LESS_URGENT",
+            "next": "END_FLOW"
+          }
         }
       }
     }

@@ -25,6 +25,14 @@ function Settings()
 
 
 
+  function handleAccessibilityModeChange(mode)
+  {
+    setAccessibilityMode(mode)
+    saveAccessibilityMode(mode)
+  }
+
+
+
   function handleSave(event)
   {
     event.preventDefault()
@@ -90,22 +98,22 @@ function Settings()
 
             <div className="settings-mode-options">
               <label>
-                <input checked={accessibilityMode === "default"} name="accessibilityMode" onChange={() => setAccessibilityMode("default")} type="radio" />
+                <input checked={accessibilityMode === "default"} name="accessibilityMode" onChange={() => handleAccessibilityModeChange("default")} type="radio" />
                 <span>Default</span>
               </label>
 
               <label>
-                <input checked={accessibilityMode === "dark"} name="accessibilityMode" onChange={() => setAccessibilityMode("dark")} type="radio" />
+                <input checked={accessibilityMode === "dark"} name="accessibilityMode" onChange={() => handleAccessibilityModeChange("dark")} type="radio" />
                 <span>Dark Mode</span>
               </label>
 
               <label>
-                <input checked={accessibilityMode === "high_contrast"} name="accessibilityMode" onChange={() => setAccessibilityMode("high_contrast")} type="radio" />
+                <input checked={accessibilityMode === "high_contrast"} name="accessibilityMode" onChange={() => handleAccessibilityModeChange("high_contrast")} type="radio" />
                 <span>High Contrast Mode</span>
               </label>
 
               <label>
-                <input checked={accessibilityMode === "dyslexia"} name="accessibilityMode" onChange={() => setAccessibilityMode("dyslexia")} type="radio" />
+                <input checked={accessibilityMode === "dyslexia"} name="accessibilityMode" onChange={() => handleAccessibilityModeChange("dyslexia")} type="radio" />
                 <span>Dyslexia-Friendly Mode</span>
               </label>
             </div>

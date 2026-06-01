@@ -6,17 +6,17 @@ const triageService = require("./triage.service");
 
 
 
-async function answerIntakeQuestions(sessionId, chiefComplaint)
+async function answerIntakeQuestions(sessionId, chiefComplaint, options = {})
 {
   await triageService.answerQuestion(sessionId, "other");
-  await triageService.answerQuestion(sessionId, "young_adult");
+  await triageService.answerQuestion(sessionId, options.ageGroup || "young_adult");
   await triageService.answerQuestion(sessionId, "no");
   await triageService.answerQuestion(sessionId, "no");
-  await triageService.answerQuestion(sessionId, ["none"]);
+  await triageService.answerQuestion(sessionId, options.conditions || ["none"]);
 
   await triageService.answerQuestion(sessionId, chiefComplaint);
 
-  return triageService.answerQuestion(sessionId, "one_to_twenty_four_hours");
+  return triageService.answerQuestion(sessionId, options.symptomOnset || "one_to_twenty_four_hours");
 }
 
 
@@ -29,6 +29,18 @@ async function fetchSymptomsSummary(sessionId)
   );
 
   return result.rows[0].symptoms_summary;
+}
+
+
+
+async function fetchTriageSession(sessionId)
+{
+  const result = await db.pool.query(
+    "SELECT priority_level, symptoms_summary FROM triage_sessions WHERE session_id = $1",
+    [sessionId]
+  );
+
+  return result.rows[0];
 }
 
 
@@ -320,7 +332,7 @@ test("asks allergy details when allergies are present or uncertain", async () =>
 
 
 
-test("asks male-specific warning question and routes warning signs to urgent", async () =>
+test("keeps male-specific warning as provisional until follow-up is complete", async () =>
 {
   const session = await triageService.startTriage();
 
@@ -333,8 +345,8 @@ test("asks male-specific warning question and routes warning signs to urgent", a
 
   const warningResult = await triageService.answerQuestion(session.sessionId, "one_to_twenty_four_hours");
 
-  assert.equal(warningResult.done, true);
-  assert.equal(warningResult.priority, "URGENT");
+  assert.equal(warningResult.done, false);
+  assert.equal(warningResult.question.id, "unconscious_or_unresponsive");
 
   const symptomsSummary = await fetchSymptomsSummary(session.sessionId);
 
@@ -397,12 +409,11 @@ test("returns a terminal priority from a complaint flow", async () =>
   await answerNoToRedFlags(session.sessionId);
   await triageService.answerQuestion(session.sessionId, "no");
   await triageService.answerQuestion(session.sessionId, "no");
-  await triageService.answerQuestion(session.sessionId, "no");
 
-  const result = await triageService.answerQuestion(session.sessionId, "yes");
+  const result = await triageService.answerQuestion(session.sessionId, "no");
 
   assert.equal(result.done, true);
-  assert.equal(result.priority, "NON_URGENT");
+  assert.equal(result.priority, "LESS_URGENT");
   assert.equal(result.patientNumber, 1000);
 });
 
@@ -418,6 +429,160 @@ test("returns a terminal priority from a global red flag", async () =>
 
   assert.equal(result.done, true);
   assert.equal(result.priority, "RESUSCITATION");
+});
+
+
+
+test("completes mandatory intake before any terminal priority", async () =>
+{
+  const session = await triageService.startTriage();
+
+  await triageService.answerQuestion(session.sessionId, "male");
+
+  const result = await triageService.answerQuestion(session.sessionId, "young_adult");
+
+  assert.equal(result.done, false);
+  assert.equal(result.question.id, "male_specific_warning");
+});
+
+
+
+test("does not finish immediately after a provisional warning answer", async () =>
+{
+  const session = await triageService.startTriage();
+
+  await answerIntakeQuestions(session.sessionId, "general_pain");
+  await answerNoToRedFlags(session.sessionId);
+
+  const result = await triageService.answerQuestion(session.sessionId, "yes");
+
+  assert.equal(result.done, false);
+  assert.equal(result.question.id, "pain_2");
+});
+
+
+
+test("skips repeated medical condition questions using intake answers", async () =>
+{
+  const session = await triageService.startTriage();
+
+  await answerIntakeQuestions(session.sessionId, "difficulty_breathing",
+  {
+    conditions: ["asthma"]
+  });
+  await answerNoToRedFlags(session.sessionId);
+  await triageService.answerQuestion(session.sessionId, "no");
+
+  const result = await triageService.answerQuestion(session.sessionId, "no");
+  const symptomsSummary = await fetchSymptomsSummary(session.sessionId);
+
+  assert.equal(result.done, false);
+  assert.equal(result.question.id, "breathing_4");
+  assert.match(symptomsSummary, /breathing_3: yes \(derived from intake: asthma\)/);
+});
+
+
+
+test("uses derived risk factors to affect final priority", async () =>
+{
+  const session = await triageService.startTriage();
+
+  await answerIntakeQuestions(session.sessionId, "chest_pain",
+  {
+    conditions: ["diabetes"]
+  });
+  await answerNoToRedFlags(session.sessionId);
+  await triageService.answerQuestion(session.sessionId, "no");
+  await triageService.answerQuestion(session.sessionId, "no");
+
+  const result = await triageService.answerQuestion(session.sessionId, "no");
+  const symptomsSummary = await fetchSymptomsSummary(session.sessionId);
+
+  assert.equal(result.done, true);
+  assert.equal(result.priority, "URGENT");
+  assert.match(symptomsSummary, /chest_4: yes \(derived from intake: diabetes\)/);
+});
+
+
+
+test("reuses symptom onset for duration follow-up questions", async () =>
+{
+  const session = await triageService.startTriage();
+
+  await answerIntakeQuestions(session.sessionId, "vomiting_dehydration",
+  {
+    symptomOnset: "one_to_three_days"
+  });
+  await answerNoToRedFlags(session.sessionId);
+  await triageService.answerQuestion(session.sessionId, "no");
+
+  const result = await triageService.answerQuestion(session.sessionId, "no");
+  const symptomsSummary = await fetchSymptomsSummary(session.sessionId);
+
+  assert.equal(result.done, true);
+  assert.equal(result.priority, "LESS_URGENT");
+  assert.match(symptomsSummary, /vomiting_4: yes \(derived from intake: onset more than 24 hours\)/);
+});
+
+
+
+test("allows provisional priority to be lowered by follow-up answers", async () =>
+{
+  const session = await triageService.startTriage();
+
+  await answerIntakeQuestions(session.sessionId, "general_pain",
+  {
+    symptomOnset: "more_than_one_month"
+  });
+  await answerNoToRedFlags(session.sessionId);
+  await triageService.answerQuestion(session.sessionId, "yes");
+  await triageService.answerQuestion(session.sessionId, "no");
+
+  const result = await triageService.answerQuestion(session.sessionId, "no");
+  const storedSession = await fetchTriageSession(session.sessionId);
+
+  assert.equal(result.done, true);
+  assert.equal(result.priority, "NON_URGENT");
+  assert.equal(storedSession.priority_level, "NON_URGENT");
+  assert.match(storedSession.symptoms_summary, /pain_1: yes/);
+  assert.match(storedSession.symptoms_summary, /pain_4: yes \(derived from intake: onset more than 1 month\)/);
+});
+
+
+
+test("allows provisional priority to be raised by follow-up answers", async () =>
+{
+  const session = await triageService.startTriage();
+
+  await answerIntakeQuestions(session.sessionId, "fever",
+  {
+    ageGroup: "elderly"
+  });
+  await answerNoToRedFlags(session.sessionId);
+  await triageService.answerQuestion(session.sessionId, "no");
+
+  const result = await triageService.answerQuestion(session.sessionId, "no");
+  const symptomsSummary = await fetchSymptomsSummary(session.sessionId);
+
+  assert.equal(result.done, true);
+  assert.equal(result.priority, "URGENT");
+  assert.match(symptomsSummary, /fever_4: yes \(derived from intake: age 65\+\)/);
+});
+
+
+
+test("keeps locked priority for true critical emergencies", async () =>
+{
+  const session = await triageService.startTriage();
+
+  await answerIntakeQuestions(session.sessionId, "difficulty_breathing");
+
+  const result = await triageService.answerQuestion(session.sessionId, "yes");
+  const storedSession = await fetchTriageSession(session.sessionId);
+
+  assert.equal(result.done, true);
+  assert.equal(result.priority, "RESUSCITATION");
+  assert.equal(storedSession.priority_level, "RESUSCITATION");
 });
 
 

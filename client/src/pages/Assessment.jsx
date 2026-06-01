@@ -317,6 +317,57 @@ function Assessment()
 
 
 
+  function findSelectedAnswer(questionText)
+  {
+    const selectedAnswer = selectedAnswers.find(answer => answer.question === questionText)
+
+    return selectedAnswer ? selectedAnswer.answer : ""
+  }
+
+
+
+  function renderPatientContextSummary()
+  {
+    if (!result)
+    {
+      return null
+    }
+
+    const allergies = findSelectedAnswer("What type of allergy do you have?")
+      || findSelectedAnswer("Do you have any known allergies?")
+    const contextItems = [
+      { label: "Gender", value: findSelectedAnswer("What is your gender?") },
+      { label: "Age", value: findSelectedAnswer("How old are you?") },
+      { label: "Pregnancy status", value: findSelectedAnswer("Are you pregnant?") },
+      { label: "Pregnancy duration", value: findSelectedAnswer("How many weeks pregnant are you?") },
+      { label: "Last period", value: findSelectedAnswer("When was your last period?") },
+      { label: "Allergies", value: allergies || "Not provided" },
+      { label: "Medical conditions", value: findSelectedAnswer("Do you have any relevant medical conditions?") || "Not provided" }
+    ].filter(item => item.value)
+
+    if (contextItems.length === 0)
+    {
+      return null
+    }
+
+    return (
+      <section className="patient-context result-patient-context" aria-label="Patient context">
+        <p className="question-label">Patient context</p>
+
+        <div className="patient-context-grid">
+          {contextItems.map(item => (
+            <div className="patient-context-badge" key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+
+
   function renderIntakeForm()
   {
     if (loading || question || result)
@@ -607,6 +658,7 @@ function Assessment()
         </p>
 
         {renderResultMetrics()}
+        {renderPatientContextSummary()}
         {renderAnswerReview()}
         {renderResultCountdown()}
         {renderResultActions()}

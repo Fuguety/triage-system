@@ -229,6 +229,92 @@ function findQuestion(questionId)
 
 
 
+function normalizeOutcome(outcome)
+{
+  if (!outcome)
+  {
+    return {};
+  }
+
+  if (typeof outcome === "string")
+  {
+    return {
+      next: outcome
+    };
+  }
+
+  return outcome;
+}
+
+
+
+function cleanAnswerId(answerId)
+{
+  if (typeof answerId !== "string")
+  {
+    return answerId;
+  }
+
+  return answerId.split(" (derived from intake:")[0];
+}
+
+
+
+function getGlobalAnswerOutcome(questionRecord, symptomsSummary)
+{
+  if (questionRecord.rawQuestion.nextByAnswer)
+  {
+    const currentAnswer = findAnswerInSummary(symptomsSummary, questionRecord.rawQuestion.id);
+
+    return normalizeOutcome(questionRecord.rawQuestion.nextByAnswer[currentAnswer]);
+  }
+
+  if (questionRecord.rawQuestion.nextBySummary)
+  {
+    const summaryRule = questionRecord.rawQuestion.nextBySummary;
+    const summaryAnswer = findAnswerInSummary(symptomsSummary, summaryRule.questionId);
+
+    return normalizeOutcome(summaryRule.answers[summaryAnswer] || summaryRule.default);
+  }
+
+  if (questionRecord.rawQuestion.next)
+  {
+    return normalizeOutcome(questionRecord.rawQuestion.next);
+  }
+
+  return {};
+}
+
+
+
+function getAnswerOutcome(questionRecord, answerId, symptomsSummary)
+{
+  if (questionRecord.kind === "global")
+  {
+    return getGlobalAnswerOutcome(questionRecord, symptomsSummary);
+  }
+
+  if (questionRecord.kind === "red_flag" && answerId === "yes")
+  {
+    return normalizeOutcome(
+    {
+      lockedPriority: questionRecord.rawQuestion.lockedPriority,
+      next: questionRecord.rawQuestion.next,
+      priorityAdjustment: questionRecord.rawQuestion.priorityAdjustment,
+      provisionalPriority: questionRecord.rawQuestion.provisionalPriority
+    });
+  }
+
+  if (questionRecord.kind === "flow")
+  {
+    return normalizeOutcome(questionRecord.rawQuestion[answerId]);
+  }
+
+  return {};
+}
+
+
+
 function validateAnswer(question, answerId)
 {
   if (question.type === "multi_select")
@@ -295,6 +381,20 @@ function buildSymptomsSummary(existingSummary, question, answer)
 
 
 
+function buildDerivedSymptomsSummary(existingSummary, questionId, answerId, reason)
+{
+  const entry = `${questionId}: ${answerId} (derived from intake: ${reason})`;
+
+  if (!existingSummary)
+  {
+    return entry;
+  }
+
+  return `${existingSummary}\n${entry}`;
+}
+
+
+
 function findAnswerInSummary(symptomsSummary, questionId)
 {
   if (!symptomsSummary)
@@ -310,7 +410,213 @@ function findAnswerInSummary(symptomsSummary, questionId)
     return null;
   }
 
-  return matchingEntry.slice(questionId.length + 2);
+  return cleanAnswerId(matchingEntry.slice(questionId.length + 2));
+}
+
+
+
+function findAnswersInSummary(symptomsSummary, questionId)
+{
+  const answer = findAnswerInSummary(symptomsSummary, questionId);
+
+  if (!answer)
+  {
+    return [];
+  }
+
+  return answer.split(",");
+}
+
+
+
+function hasSummaryAnswer(symptomsSummary, questionId, answerId)
+{
+  return findAnswersInSummary(symptomsSummary, questionId).includes(answerId);
+}
+
+
+
+function isKnownOnset(answer)
+{
+  return Boolean(answer && answer !== "not_sure");
+}
+
+
+
+function deriveRiskFlags(symptomsSummary)
+{
+  const ageGroup = findAnswerInSummary(symptomsSummary, "age_group");
+  const pregnancyStatus = findAnswerInSummary(symptomsSummary, "pregnancy_status");
+  const pregnancyPossible = findAnswerInSummary(symptomsSummary, "pregnancy_possible");
+  const allergyStatus = findAnswerInSummary(symptomsSummary, "allergies");
+  const symptomOnset = findAnswerInSummary(symptomsSummary, "symptom_onset");
+
+  return {
+    hasAllergies: allergyStatus === "yes" ? true : allergyStatus === "no" ? false : null,
+    hasAsthma: hasSummaryAnswer(symptomsSummary, "comorbidities", "asthma"),
+    hasCancer: hasSummaryAnswer(symptomsSummary, "comorbidities", "cancer"),
+    hasDiabetes: hasSummaryAnswer(symptomsSummary, "comorbidities", "diabetes"),
+    hasHeartDisease: hasSummaryAnswer(symptomsSummary, "comorbidities", "heart_disease"),
+    hasHypertension: hasSummaryAnswer(symptomsSummary, "comorbidities", "hypertension"),
+    hasLungDisease: hasSummaryAnswer(symptomsSummary, "comorbidities", "lung_disease"),
+    hasSevereOnset: symptomOnset === "less_than_one_hour" ? true : isKnownOnset(symptomOnset) ? false : null,
+    isAdult: ["young_adult", "middle_adult", "elderly"].includes(ageGroup),
+    isChild: ["child", "adolescent"].includes(ageGroup),
+    isElderly: ageGroup === "elderly",
+    isPregnant: pregnancyStatus === "yes",
+    onsetMoreThan1Month: symptomOnset === "more_than_one_month" ? true : isKnownOnset(symptomOnset) ? false : null,
+    onsetMoreThan24Hours: ["one_to_three_days", "four_to_seven_days", "more_than_seven_days", "more_than_one_month"].includes(symptomOnset) ? true : isKnownOnset(symptomOnset) ? false : null,
+    onsetMoreThan7Days: ["more_than_seven_days", "more_than_one_month"].includes(symptomOnset) ? true : isKnownOnset(symptomOnset) ? false : null,
+    pregnancyUnknown: pregnancyStatus === "not_sure" || pregnancyPossible === "not_sure"
+  };
+}
+
+
+
+function getRiskFlagLabel(flagName)
+{
+  const labels =
+  {
+    hasAllergies: "allergies",
+    hasAsthma: "asthma",
+    hasCancer: "cancer",
+    hasDiabetes: "diabetes",
+    hasHeartDisease: "heart disease",
+    hasHypertension: "hypertension",
+    hasLungDisease: "lung disease",
+    hasSevereOnset: "onset less than 1 hour",
+    isAdult: "adult age group",
+    isChild: "under 18",
+    isElderly: "age 65+",
+    isPregnant: "pregnancy",
+    onsetMoreThan1Month: "onset more than 1 month",
+    onsetMoreThan24Hours: "onset more than 24 hours",
+    onsetMoreThan7Days: "onset more than 7 days",
+    pregnancyUnknown: "pregnancy uncertain"
+  };
+
+  return labels[flagName] || formatAnswerLabel(flagName);
+}
+
+
+
+function evaluateAnyCondition(riskFlags, flagNames)
+{
+  const values = flagNames.map(flagName => riskFlags[flagName]);
+
+  if (values.includes(true))
+  {
+    return true;
+  }
+
+  if (values.includes(null) || values.includes(undefined))
+  {
+    return null;
+  }
+
+  return false;
+}
+
+
+
+function evaluateAllCondition(riskFlags, flagNames)
+{
+  const values = flagNames.map(flagName => riskFlags[flagName]);
+
+  if (values.includes(false))
+  {
+    return false;
+  }
+
+  if (values.includes(null) || values.includes(undefined))
+  {
+    return null;
+  }
+
+  return true;
+}
+
+
+
+function evaluateDerivedCondition(question, riskFlags)
+{
+  const flagNames = question.deriveFrom || [];
+
+  if (!question.skipIfKnown || !flagNames.length)
+  {
+    return null;
+  }
+
+  if (question.condition === "all")
+  {
+    return evaluateAllCondition(riskFlags, flagNames);
+  }
+
+  if (question.condition === "any")
+  {
+    return evaluateAnyCondition(riskFlags, flagNames);
+  }
+
+  return riskFlags[question.condition || flagNames[0]];
+}
+
+
+
+function getDerivedReason(question, riskFlags, conditionResult)
+{
+  const matchingFlags = (question.deriveFrom || []).filter(flagName => riskFlags[flagName] === conditionResult);
+
+  if (!matchingFlags.length)
+  {
+    return conditionResult ? "risk factor present" : "risk factor absent";
+  }
+
+  return matchingFlags.map(getRiskFlagLabel).join(", ");
+}
+
+
+
+function getDerivedAnswer(questionRecord, symptomsSummary)
+{
+  const riskFlags = deriveRiskFlags(symptomsSummary);
+  const conditionResult = evaluateDerivedCondition(questionRecord.rawQuestion, riskFlags);
+
+  if (conditionResult === null || conditionResult === undefined)
+  {
+    return null;
+  }
+
+  return {
+    answerId: conditionResult ? "yes" : "no",
+    reason: getDerivedReason(questionRecord.rawQuestion, riskFlags, conditionResult)
+  };
+}
+
+
+
+function parseSummaryEntries(symptomsSummary)
+{
+  if (!symptomsSummary)
+  {
+    return [];
+  }
+
+  return symptomsSummary.split("\n").map(entry =>
+  {
+    const separatorIndex = entry.indexOf(": ");
+
+    return {
+      answerId: cleanAnswerId(entry.slice(separatorIndex + 2)),
+      questionId: entry.slice(0, separatorIndex)
+    };
+  });
+}
+
+
+
+function isDerivedSummaryEntry(entry)
+{
+  return entry.includes(" (derived from intake:");
 }
 
 
@@ -324,7 +630,16 @@ function removeLastSummaryEntry(symptomsSummary)
 
   const entries = symptomsSummary.split("\n");
 
-  entries.pop();
+  while (entries.length)
+  {
+    const entry = entries.pop();
+    const questionId = entry.split(": ")[0];
+
+    if (!isDerivedSummaryEntry(entry) && findQuestion(questionId))
+    {
+      break;
+    }
+  }
 
   return entries.length ? entries.join("\n") : null;
 }
@@ -339,9 +654,19 @@ function getLastAnsweredQuestionId(symptomsSummary)
   }
 
   const entries = symptomsSummary.split("\n");
-  const lastEntry = entries[entries.length - 1];
 
-  return lastEntry ? lastEntry.split(": ")[0] : null;
+  for (let index = entries.length - 1; index >= 0; index -= 1)
+  {
+    const entry = entries[index];
+    const questionId = entry.split(": ")[0];
+
+    if (!isDerivedSummaryEntry(entry) && findQuestion(questionId))
+    {
+      return questionId;
+    }
+  }
+
+  return null;
 }
 
 
@@ -379,24 +704,91 @@ function getComplaintStartQuestionId(symptomsSummary)
 
 
 
+function getComplaintDefaultPriority(symptomsSummary)
+{
+  const chiefComplaint = findAnswerInSummary(symptomsSummary, "chief_complaint");
+  const flow = triageFlow.flows[chiefComplaint];
+
+  return flow ? flow.defaultPriority : "LESS_URGENT";
+}
+
+
+
+function applyPriorityOutcome(priorityState, outcome)
+{
+  if (outcome.lockedPriority)
+  {
+    return {
+      ...priorityState,
+      lockedPriority: outcome.lockedPriority
+    };
+  }
+
+  if (outcome.priorityAdjustment)
+  {
+    return {
+      ...priorityState,
+      provisionalPriority: outcome.priorityAdjustment
+    };
+  }
+
+  if (outcome.provisionalPriority)
+  {
+    return {
+      ...priorityState,
+      provisionalPriority: outcome.provisionalPriority
+    };
+  }
+
+  return priorityState;
+}
+
+
+
+function getPriorityState(symptomsSummary)
+{
+  return parseSummaryEntries(symptomsSummary).reduce((priorityState, entry) =>
+  {
+    const questionRecord = findQuestion(entry.questionId);
+
+    if (!questionRecord)
+    {
+      return priorityState;
+    }
+
+    return applyPriorityOutcome(priorityState, getAnswerOutcome(questionRecord, entry.answerId, symptomsSummary));
+  },
+  {
+    lockedPriority: null,
+    provisionalPriority: null
+  });
+}
+
+
+
+function calculateFinalPriority(symptomsSummary, terminalPriority)
+{
+  const priorityState = getPriorityState(symptomsSummary);
+
+  if (priorityState.lockedPriority)
+  {
+    return priorityState.lockedPriority;
+  }
+
+  return priorityState.provisionalPriority
+    || terminalPriority
+    || getComplaintDefaultPriority(symptomsSummary);
+}
+
+
+
 function getNextGlobalQuestionId(questionRecord, symptomsSummary)
 {
-  if (questionRecord.rawQuestion.nextByAnswer)
-  {
-    return questionRecord.rawQuestion.nextByAnswer[findAnswerInSummary(symptomsSummary, questionRecord.rawQuestion.id)];
-  }
+  const outcome = getGlobalAnswerOutcome(questionRecord, symptomsSummary);
 
-  if (questionRecord.rawQuestion.nextBySummary)
+  if (outcome.next)
   {
-    const summaryRule = questionRecord.rawQuestion.nextBySummary;
-    const summaryAnswer = findAnswerInSummary(symptomsSummary, summaryRule.questionId);
-
-    return summaryRule.answers[summaryAnswer] || summaryRule.default;
-  }
-
-  if (questionRecord.rawQuestion.next)
-  {
-    return questionRecord.rawQuestion.next;
+    return outcome.next;
   }
 
   const nextQuestion = triageFlow.globalQuestions[questionRecord.index + 1];
@@ -415,7 +807,12 @@ function getNextRedFlagQuestionId(questionRecord, answerId, symptomsSummary)
 {
   if (answerId === "yes")
   {
-    return `END_${questionRecord.rawQuestion.yesPriority}`;
+    const outcome = getAnswerOutcome(questionRecord, answerId, symptomsSummary);
+
+    if (outcome.next)
+    {
+      return outcome.next;
+    }
   }
 
   const nextQuestion = triageFlow.globalRedFlags[questionRecord.index + 1];
@@ -432,7 +829,7 @@ function getNextRedFlagQuestionId(questionRecord, answerId, symptomsSummary)
 
 function getNextFlowQuestionId(questionRecord, answerId)
 {
-  return questionRecord.rawQuestion[answerId];
+  return getAnswerOutcome(questionRecord, answerId).next;
 }
 
 
@@ -454,11 +851,92 @@ function getNextQuestionId(questionRecord, answerId, symptomsSummary)
 
 
 
+function getDerivedOutcome(questionRecord, answerId)
+{
+  const trueAnswer = answerId === "yes";
+  const priority = trueAnswer
+    ? questionRecord.rawQuestion.priorityIfTrue
+    : questionRecord.rawQuestion.priorityIfFalse;
+  const next = trueAnswer
+    ? questionRecord.rawQuestion.nextIfTrue
+    : questionRecord.rawQuestion.nextIfFalse;
+  const answerOutcome = getAnswerOutcome(questionRecord, answerId);
+
+  return {
+    ...answerOutcome,
+    next: next || answerOutcome.next,
+    provisionalPriority: priority || answerOutcome.provisionalPriority
+  };
+}
+
+
+
 function getTerminalPriority(questionId)
 {
   const terminalNode = triageFlow.terminalNodes[questionId];
 
-  return terminalNode ? terminalNode.priority : null;
+  return terminalNode ? terminalNode.priority || null : null;
+}
+
+
+
+function isTerminalQuestion(questionId)
+{
+  return Boolean(triageFlow.terminalNodes[questionId]);
+}
+
+
+
+function resolveNextStep(questionId, symptomsSummary)
+{
+  let currentQuestionId = questionId;
+  let currentSymptomsSummary = symptomsSummary;
+  let skippedQuestionCount = 0;
+
+  while (!isTerminalQuestion(currentQuestionId))
+  {
+    skippedQuestionCount += 1;
+
+    if (skippedQuestionCount > 50)
+    {
+      throw createError("Invalid triage flow", 500);
+    }
+
+    const questionRecord = findQuestion(currentQuestionId);
+
+    if (!questionRecord)
+    {
+      throw createError("Invalid session state", 500);
+    }
+
+    const derivedAnswer = getDerivedAnswer(questionRecord, currentSymptomsSummary);
+
+    if (!derivedAnswer)
+    {
+      return {
+        done: false,
+        questionId: currentQuestionId,
+        symptomsSummary: currentSymptomsSummary
+      };
+    }
+
+    currentSymptomsSummary = buildDerivedSymptomsSummary(
+      currentSymptomsSummary,
+      questionRecord.question.id,
+      derivedAnswer.answerId,
+      derivedAnswer.reason
+    );
+
+    const derivedOutcome = getDerivedOutcome(questionRecord, derivedAnswer.answerId);
+
+    currentQuestionId = derivedOutcome.next || getNextQuestionId(questionRecord, derivedAnswer.answerId, currentSymptomsSummary);
+  }
+
+  return {
+    done: true,
+    questionId: currentQuestionId,
+    symptomsSummary: currentSymptomsSummary
+  };
 }
 
 
@@ -612,14 +1090,16 @@ async function answerQuestion(sessionId, answerId)
   const selectedAnswer = validateAnswer(questionRecord.question, answerId);
   const symptomsSummary = buildSymptomsSummary(session.symptoms_summary, questionRecord.question, selectedAnswer);
   const nextQuestionId = getNextQuestionId(questionRecord, answerId, symptomsSummary);
-  const priority = getTerminalPriority(nextQuestionId);
+  const nextStep = resolveNextStep(nextQuestionId, symptomsSummary);
 
-  if (priority)
+  if (nextStep.done)
   {
-    return completeSession(session, priority, symptomsSummary);
+    const priority = calculateFinalPriority(nextStep.symptomsSummary, getTerminalPriority(nextStep.questionId));
+
+    return completeSession(session, priority, nextStep.symptomsSummary);
   }
 
-  return moveToQuestion(sessionId, nextQuestionId, symptomsSummary);
+  return moveToQuestion(sessionId, nextStep.questionId, nextStep.symptomsSummary);
 }
 
 

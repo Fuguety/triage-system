@@ -25,15 +25,18 @@ const priorityOrderSql = `
 
 const summaryAnswerLabels =
 {
+  adolescent: "13\u201317 years",
   female: "Female",
   four_to_seven_days: "4\u20137 days ago",
   animal_allergy: "Animal allergy",
   asthma: "Asthma",
   cancer: "Cancer",
   celiac_disease: "Celiac disease",
+  child: "0\u201312 years",
   contrast_dye_allergy: "Contrast dye allergy",
   diabetes: "Diabetes",
   dust_allergy: "Dust allergy",
+  elderly: "65+ years",
   epilepsy: "Epilepsy",
   food_allergy: "Food allergy",
   gluten_intolerance_sensitivity: "Gluten intolerance / sensitivity",
@@ -47,6 +50,7 @@ const summaryAnswerLabels =
   lung_disease: "Lung disease",
   male: "Male",
   medication_allergy: "Medication allergy",
+  middle_adult: "40\u201364 years",
   mold_allergy: "Mold allergy",
   more_than_one_month: "More than 1 month ago",
   more_than_seven_days: "More than 7 days ago",
@@ -64,7 +68,8 @@ const summaryAnswerLabels =
   twelve_to_twenty_seven_weeks: "12\u201327 weeks",
   twenty_eight_or_more_weeks: "28+ weeks",
   wheat_allergy: "Wheat allergy",
-  yes: "Yes"
+  yes: "Yes",
+  young_adult: "18\u201339 years"
 };
 
 
@@ -164,6 +169,7 @@ function serializeEntry(row, queuePosition)
 
   return {
     anonymous: row.anonymous,
+    age: formatSummaryAnswer(findSummaryAnswer(symptomsSummary, "age_group")),
     fullName: row.full_name || "",
     gender: formatSummaryAnswer(findSummaryAnswer(symptomsSummary, "gender")),
     healthInsurance: row.health_insurance || "",
