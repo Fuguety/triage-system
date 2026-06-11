@@ -4,6 +4,10 @@ const assert = require("node:assert/strict");
 const db = require("../db/database");
 const triageService = require("./triage.service");
 
+const originalFetch = global.fetch;
+const originalHuggingFaceToken = process.env.HF_TOKEN;
+const originalHuggingFaceModel = process.env.HF_MODEL;
+
 
 
 async function answerIntakeQuestions(sessionId, chiefComplaint, options = {})
@@ -36,7 +40,15 @@ async function fetchSymptomsSummary(sessionId)
 async function fetchTriageSession(sessionId)
 {
   const result = await db.pool.query(
-    "SELECT priority_level, symptoms_summary FROM triage_sessions WHERE session_id = $1",
+    `SELECT
+      priority_level,
+      symptoms_summary,
+      ai_brief,
+      ai_suggested_priority,
+      ai_reason,
+      ai_risk_factors
+    FROM triage_sessions
+    WHERE session_id = $1`,
     [sessionId]
   );
 
@@ -67,6 +79,10 @@ test.before(async () =>
 
 test.beforeEach(async () =>
 {
+  delete process.env.HF_TOKEN;
+  delete process.env.HF_MODEL;
+  global.fetch = originalFetch;
+
   await triageService.resetTriageSessions();
 });
 
@@ -74,6 +90,26 @@ test.beforeEach(async () =>
 
 test.after(async () =>
 {
+  global.fetch = originalFetch;
+
+  if (originalHuggingFaceToken === undefined)
+  {
+    delete process.env.HF_TOKEN;
+  }
+  else
+  {
+    process.env.HF_TOKEN = originalHuggingFaceToken;
+  }
+
+  if (originalHuggingFaceModel === undefined)
+  {
+    delete process.env.HF_MODEL;
+  }
+  else
+  {
+    process.env.HF_MODEL = originalHuggingFaceModel;
+  }
+
   await db.closeDatabase();
 });
 
@@ -415,6 +451,62 @@ test("returns a terminal priority from a complaint flow", async () =>
   assert.equal(result.done, true);
   assert.equal(result.priority, "LESS_URGENT");
   assert.equal(result.patientNumber, 1000);
+});
+
+
+
+test("saves AI output when triage completes", async () =>
+{
+  process.env.HF_TOKEN = "test-token";
+  process.env.HF_MODEL = "openai/gpt-oss-20b";
+  global.fetch = async () =>
+  {
+    return {
+      ok: true,
+      async json()
+      {
+        return {
+          choices:
+          [
+            {
+              message:
+              {
+                content: JSON.stringify(
+                {
+                  brief: "Adult patient reports general pain without critical red flags.",
+                  suggestedPriority: "LESS_URGENT",
+                  reason: "The rule-based flow found no immediate red flags.",
+                  riskFactors:
+                  [
+                    "general pain"
+                  ]
+                })
+              }
+            }
+          ]
+        };
+      }
+    };
+  };
+
+  const session = await triageService.startTriage();
+
+  await answerIntakeQuestions(session.sessionId, "general_pain");
+  await answerNoToRedFlags(session.sessionId);
+  await triageService.answerQuestion(session.sessionId, "no");
+  await triageService.answerQuestion(session.sessionId, "no");
+
+  const result = await triageService.answerQuestion(session.sessionId, "no");
+  const storedSession = await fetchTriageSession(session.sessionId);
+
+  assert.equal(result.done, true);
+  assert.equal(storedSession.ai_brief, "Adult patient reports general pain without critical red flags.");
+  assert.equal(storedSession.ai_suggested_priority, "LESS_URGENT");
+  assert.equal(storedSession.ai_reason, "The rule-based flow found no immediate red flags.");
+  assert.deepEqual(storedSession.ai_risk_factors,
+  [
+    "general pain"
+  ]);
 });
 
 

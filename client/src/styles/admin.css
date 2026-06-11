@@ -80,6 +80,20 @@
   background: var(--surface-strong);
 }
 
+.collapsible-section-header
+{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.compact-toggle
+{
+  min-height: 40px;
+  padding: 8px 12px;
+}
+
 .patient-context-grid
 {
   display: grid;
@@ -109,6 +123,92 @@
   color: var(--text);
   font-size: 15px;
   line-height: 1.35;
+}
+
+.ai-support-summary
+{
+  background: var(--surface-strong);
+  border-color: var(--line);
+}
+
+.ai-support-warning
+{
+  color: #7A4E00;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+  margin: 4px 0 0;
+}
+
+.ai-support-grid
+{
+  display: grid;
+  gap: 12px;
+}
+
+.ai-support-item
+{
+  display: grid;
+  gap: 4px;
+}
+
+.ai-support-item span
+{
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ai-support-item strong
+{
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+:root.accessibility-dark .ai-support-summary
+{
+  background: #152231;
+  border-color: #5E7488;
+}
+
+:root.accessibility-dark .ai-support-warning
+{
+  color: #FFD37A;
+}
+
+:root.accessibility-dark .ai-support-item span,
+:root.accessibility-dark .ai-support-summary .question-label
+{
+  color: #D7E2EC;
+}
+
+:root.accessibility-dark .ai-support-item strong
+{
+  color: #FFFFFF;
+}
+
+:root.accessibility-dark .patient-context
+{
+  background: var(--surface-strong);
+  border-color: var(--line);
+}
+
+:root.accessibility-dark .patient-context-badge
+{
+  background: #142233;
+  border-color: #50677B;
+}
+
+:root.accessibility-dark .patient-context-badge span
+{
+  color: #D7E2EC;
+}
+
+:root.accessibility-dark .patient-context-badge strong
+{
+  color: #FFFFFF;
 }
 
 .doctor-card
@@ -226,6 +326,27 @@
   padding-top: 24px;
 }
 
+.admin-card .compact-actions
+{
+  margin-top: 16px;
+  padding-top: 0;
+}
+
+.checkbox-field
+{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.checkbox-field input
+{
+  height: 18px;
+  width: 18px;
+}
+
 .priority-select
 {
   border: 2px solid var(--primary);
@@ -277,6 +398,12 @@
   }
 
   .admin-card-summary
+  {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .collapsible-section-header
   {
     align-items: stretch;
     flex-direction: column;

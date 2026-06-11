@@ -14,7 +14,9 @@ The application collects patient intake data, guides patients through a structur
 - Backend: Node.js + Express
 - Database: PostgreSQL + Docker
 - Backend module style: JavaScript CommonJS
-- Future AI integration target: Python / Hugging Face service
+- AI support: Hugging Face Inference API
+- AI model: `openai/gpt-oss-20b`
+- AI module integrated in backend service
 
 ## Architecture
 
@@ -25,10 +27,20 @@ React frontend
 Node.js + Express API
       |
       v
-JSON-based triage service
+Triage services / Queue services / Audit services / AI support service
       |
       v
 PostgreSQL
+```
+
+```text
+Backend API
+      |
+      v
+Hugging Face Inference API
+      |
+      v
+AI Support Summary
 ```
 
 Backend folders:
@@ -54,6 +66,13 @@ Backend folders:
 - Staff/admin login
 - Admin queue management
 - Patient assessment workspace
+- AI Support Summary for staff review
+- AI-generated clinical brief
+- AI-generated risk factors
+- AI-suggested priority
+- AI-generated explanation
+- AI reviewed checkbox for medical staff
+- AI fallback behavior when the external service is unavailable
 - Staff priority adjustment with audit logging
 - Complete/reject case workflow
 - Audit logs
@@ -145,6 +164,25 @@ It is responsible for:
 
 Admin audit behavior records important staff actions, including priority changes with previous and new priority values.
 
+## AI Support Module
+
+The system integrates Hugging Face Inference API through the backend.
+
+- Current model: `openai/gpt-oss-20b`
+- The AI receives a constructed clinical context, not unnecessary personal identification data.
+- The AI generates:
+  - clinical brief
+  - risk factors
+  - suggested priority
+  - explanatory reason
+- The AI is decision support only.
+- The rule-based triage logic remains the source of the preliminary priority.
+- Medical staff can review, ignore, or override the AI suggestion.
+- Medical staff can mark the AI summary as reviewed.
+- If the AI service fails, the system uses fallback output and continues working.
+
+Warning: AI output does not replace professional clinical judgment.
+
 ## Patient Context
 
 Admin and review screens expose patient context derived from the assessment summary:
@@ -158,6 +196,8 @@ Admin and review screens expose patient context derived from the assessment summ
 - Medical conditions
 
 ## Database
+
+PostgreSQL is run with Docker during development.
 
 Docker config:
 
@@ -176,6 +216,15 @@ Tables:
 - `audit_logs`
 - `hospitals`
 
+AI-related fields in `triage_sessions`:
+
+- `ai_brief`
+- `ai_suggested_priority`
+- `ai_reason`
+- `ai_risk_factors`
+- `ai_reviewed`
+- `ai_reviewed_at`
+
 Default Docker PostgreSQL settings:
 
 - Database: `triage_system`
@@ -188,6 +237,7 @@ Default Docker PostgreSQL settings:
 Public routes:
 
 - `GET /health`
+- `GET /health/ai`
 - `POST /triage/start`
 - `POST /triage/answer`
 - `POST /triage/back`
@@ -223,8 +273,22 @@ npm install
 Start PostgreSQL:
 
 ```bash
+docker compose up -d postgres
+```
+
+Or use the existing npm script:
+
+```bash
 npm run db
 ```
+
+Stop PostgreSQL:
+
+```bash
+docker compose down
+```
+
+PostgreSQL must be running before starting the backend.
 
 Start backend and frontend together from the root:
 
@@ -251,6 +315,24 @@ Frontend default URL:
 http://localhost:5173
 ```
 
+## Environment Variables
+
+Backend `.env` example:
+
+```env
+PORT=5000
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/triage_system
+JWT_SECRET=change-this-secret
+HF_TOKEN=your_hugging_face_token_here
+HF_MODEL=openai/gpt-oss-20b
+```
+
+Rules:
+
+- Do not commit `.env`.
+- Do not expose Hugging Face tokens.
+- Use `.env.example` if needed.
+
 ## Tests And Build
 
 Run backend tests:
@@ -269,10 +351,21 @@ npm run build
 
 ## Current Limitations
 
-- Triage is rule-based and JSON-driven, not AI-driven.
+- The AI module is connected through Hugging Face Inference API but is only decision-support.
 - The system is not a certified medical device.
-- No Python/Hugging Face AI service is connected yet.
+- The system is a TFG prototype and not production-ready.
+- AI output depends on external API availability.
 - No production deployment configuration is included yet.
+
+## Security Notes
+
+- JWT authentication is used for protected staff/admin access.
+- Passwords are hashed with bcrypt.
+- Admin routes are protected.
+- Request input is validated in backend services and controllers.
+- Staff actions are recorded through audit logging.
+- Secrets are loaded from environment variables.
+- Do not commit `.env` files.
 
 ## Thesis Note
 

@@ -18,6 +18,7 @@ function AdminPatient()
   const [formState, setFormState] = useState(
   {
     aboutDetails: "",
+    aiReviewed: false,
     fullName: "",
     healthInsurance: "",
     patientId: "",
@@ -25,6 +26,8 @@ function AdminPatient()
   })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [patientContextExpanded, setPatientContextExpanded] = useState(true)
+  const [aiSummaryExpanded, setAiSummaryExpanded] = useState(true)
   const [showCompleteModal, setShowCompleteModal] = useState(false)
   const [showRejectModal, setShowRejectModal] = useState(false)
 
@@ -48,6 +51,7 @@ function AdminPatient()
       setFormState(
       {
         aboutDetails: data.aboutDetails || "",
+        aiReviewed: Boolean(data.aiReviewed),
         fullName: data.fullName || "",
         healthInsurance: data.healthInsurance || "",
         patientId: data.patientId || "",
@@ -99,6 +103,15 @@ function AdminPatient()
       const data = await updateQueuePatient(token, sessionId, formState)
 
       setPatient(data)
+      setFormState(
+      {
+        aboutDetails: data.aboutDetails || "",
+        aiReviewed: Boolean(data.aiReviewed),
+        fullName: data.fullName || "",
+        healthInsurance: data.healthInsurance || "",
+        patientId: data.patientId || "",
+        priorityLevel: data.priority || ""
+      })
     }
     catch (requestError)
     {
@@ -222,17 +235,85 @@ function AdminPatient()
     }
 
     return (
-      <section className="patient-context" aria-label="Patient context">
-        <p className="question-label">Patient context</p>
-
-        <div className="patient-context-grid">
-          {contextItems.map(item => (
-            <div className="patient-context-badge" key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-            </div>
-          ))}
+      <section className="patient-context collapsible-section" aria-label="Patient context">
+        <div className="collapsible-section-header">
+          <p className="question-label">Patient context</p>
+          <button
+            aria-expanded={patientContextExpanded}
+            className="secondary-button compact-toggle"
+            onClick={() => setPatientContextExpanded(currentValue => !currentValue)}
+            type="button"
+          >
+            {patientContextExpanded ? "Hide Patient Context" : "Show Patient Context"}
+          </button>
         </div>
+
+        {patientContextExpanded && (
+          <div className="patient-context-grid">
+            {contextItems.map(item => (
+              <div className="patient-context-badge" key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.value}</strong>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    )
+  }
+
+
+
+  function renderAiSupportSummary()
+  {
+    const aiSupportSummary = patient.aiSupportSummary
+
+    if (!aiSupportSummary)
+    {
+      return null
+    }
+
+    const riskFactors = aiSupportSummary.riskFactors || []
+
+    return (
+      <section className="patient-context ai-support-summary collapsible-section" aria-label="AI Support Summary">
+        <div className="collapsible-section-header">
+          <p className="question-label">AI Support Summary</p>
+          <button
+            aria-expanded={aiSummaryExpanded}
+            className="secondary-button compact-toggle"
+            onClick={() => setAiSummaryExpanded(currentValue => !currentValue)}
+            type="button"
+          >
+            {aiSummaryExpanded ? "Hide AI Summary" : "Show AI Summary"}
+          </button>
+        </div>
+
+        {aiSummaryExpanded && (
+          <div className="ai-support-grid">
+            <p className="ai-support-warning">This AI summary is decision support only and does not replace clinical judgment.</p>
+
+            <div className="ai-support-item">
+              <span>Brief</span>
+              <strong>{aiSupportSummary.brief || "Not available"}</strong>
+            </div>
+
+            <div className="ai-support-item">
+              <span>Suggested Priority</span>
+              <strong>{aiSupportSummary.suggestedPriority || "Not available"}</strong>
+            </div>
+
+            <div className="ai-support-item">
+              <span>Reason</span>
+              <strong>{aiSupportSummary.reason || "Not available"}</strong>
+            </div>
+
+            <div className="ai-support-item">
+              <span>Risk Factors</span>
+              <strong>{riskFactors.length ? riskFactors.join(", ") : "None identified"}</strong>
+            </div>
+          </div>
+        )}
       </section>
     )
   }
@@ -261,6 +342,15 @@ function AdminPatient()
         <label className="form-field details-field">
           <span>About / Details</span>
           <textarea aria-label="About and details" className="sitrep-input" onChange={event => handleFieldChange("aboutDetails", event.target.value)} value={formState.aboutDetails} />
+        </label>
+
+        <label className="checkbox-field details-field">
+          <input
+            checked={formState.aiReviewed}
+            onChange={event => handleFieldChange("aiReviewed", event.target.checked)}
+            type="checkbox"
+          />
+          <span>AI summary reviewed by medical staff</span>
         </label>
       </div>
     )
@@ -305,6 +395,7 @@ function AdminPatient()
       <div className={`container assessment-panel admin-card doctor-card ${priorityMeta.colorClass}`}>
         {renderPatientHeader()}
         {renderPatientContext()}
+        {renderAiSupportSummary()}
         {renderPatientForm()}
         {renderPatientActions()}
       </div>

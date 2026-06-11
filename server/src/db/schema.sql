@@ -51,6 +51,12 @@ CREATE TABLE IF NOT EXISTS triage_sessions
   priority_level VARCHAR(50),
   status VARCHAR(50) NOT NULL DEFAULT 'active',
   symptoms_summary TEXT,
+  ai_brief TEXT,
+  ai_suggested_priority VARCHAR(50),
+  ai_reason TEXT,
+  ai_risk_factors JSONB,
+  ai_reviewed BOOLEAN NOT NULL DEFAULT FALSE,
+  ai_reviewed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   completed_at TIMESTAMPTZ,
   CONSTRAINT triage_sessions_priority_level_check CHECK
@@ -74,12 +80,42 @@ CREATE TABLE IF NOT EXISTS triage_sessions
       'cancelled'
     )
   ),
+  CONSTRAINT triage_sessions_ai_suggested_priority_check CHECK
+  (
+    ai_suggested_priority IS NULL
+    OR ai_suggested_priority IN
+    (
+      'RESUSCITATION',
+      'EMERGENT',
+      'URGENT',
+      'LESS_URGENT',
+      'NON_URGENT'
+    )
+  ),
   CONSTRAINT triage_sessions_completed_at_check CHECK
   (
     completed_at IS NULL
     OR completed_at >= created_at
   )
 );
+
+ALTER TABLE triage_sessions
+ADD COLUMN IF NOT EXISTS ai_brief TEXT;
+
+ALTER TABLE triage_sessions
+ADD COLUMN IF NOT EXISTS ai_suggested_priority VARCHAR(50);
+
+ALTER TABLE triage_sessions
+ADD COLUMN IF NOT EXISTS ai_reason TEXT;
+
+ALTER TABLE triage_sessions
+ADD COLUMN IF NOT EXISTS ai_risk_factors JSONB;
+
+ALTER TABLE triage_sessions
+ADD COLUMN IF NOT EXISTS ai_reviewed BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE triage_sessions
+ADD COLUMN IF NOT EXISTS ai_reviewed_at TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS queue
 (

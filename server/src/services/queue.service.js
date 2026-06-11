@@ -163,6 +163,33 @@ function validatePriority(priority)
 
 
 
+function validateAiReviewed(aiReviewed)
+{
+  if (aiReviewed !== undefined && typeof aiReviewed !== "boolean")
+  {
+    throw createError("aiReviewed must be a boolean", 400);
+  }
+}
+
+
+
+function serializeAiSupportSummary(row)
+{
+  if (!row.ai_brief && !row.ai_suggested_priority && !row.ai_reason && !row.ai_risk_factors)
+  {
+    return null;
+  }
+
+  return {
+    brief: row.ai_brief || "",
+    suggestedPriority: row.ai_suggested_priority || "",
+    reason: row.ai_reason || "",
+    riskFactors: Array.isArray(row.ai_risk_factors) ? row.ai_risk_factors : []
+  };
+}
+
+
+
 function serializeEntry(row, queuePosition)
 {
   const symptomsSummary = row.symptoms_summary || "";
@@ -179,6 +206,9 @@ function serializeEntry(row, queuePosition)
     patientNumber: Number(row.patient_number),
     aboutDetails: row.about_details || "",
     allergies: formatSummaryAnswerList(findSummaryAnswer(symptomsSummary, "allergy_details") || findSummaryAnswer(symptomsSummary, "allergies")),
+    aiReviewed: row.ai_reviewed === true,
+    aiReviewedAt: row.ai_reviewed_at,
+    aiSupportSummary: serializeAiSupportSummary(row),
     lastPeriod: formatSummaryAnswer(findSummaryAnswer(symptomsSummary, "last_period")),
     medicalConditions: formatSummaryAnswerList(findSummaryAnswer(symptomsSummary, "comorbidities")),
     pregnancyDetails: getPregnancyDetails(symptomsSummary),
@@ -205,7 +235,13 @@ async function findQueueRow(sessionId)
       patients.patient_identifier,
       patients.patient_number,
       triage_sessions.session_id,
-      triage_sessions.symptoms_summary
+      triage_sessions.symptoms_summary,
+      triage_sessions.ai_brief,
+      triage_sessions.ai_suggested_priority,
+      triage_sessions.ai_reason,
+      triage_sessions.ai_risk_factors,
+      triage_sessions.ai_reviewed,
+      triage_sessions.ai_reviewed_at
     FROM queue
     JOIN triage_sessions ON triage_sessions.id = queue.triage_session_id
     JOIN patients ON patients.id = triage_sessions.patient_id
@@ -334,6 +370,12 @@ async function getQueue()
       patients.patient_number,
       triage_sessions.session_id,
       triage_sessions.symptoms_summary,
+      triage_sessions.ai_brief,
+      triage_sessions.ai_suggested_priority,
+      triage_sessions.ai_reason,
+      triage_sessions.ai_risk_factors,
+      triage_sessions.ai_reviewed,
+      triage_sessions.ai_reviewed_at,
       ROW_NUMBER() OVER (ORDER BY ${priorityOrderSql}, queue.created_at ASC) AS queue_position
     FROM queue
     JOIN triage_sessions ON triage_sessions.id = queue.triage_session_id
@@ -363,6 +405,12 @@ async function getAdminQueue()
       patients.patient_number,
       triage_sessions.session_id,
       triage_sessions.symptoms_summary,
+      triage_sessions.ai_brief,
+      triage_sessions.ai_suggested_priority,
+      triage_sessions.ai_reason,
+      triage_sessions.ai_risk_factors,
+      triage_sessions.ai_reviewed,
+      triage_sessions.ai_reviewed_at,
       ROW_NUMBER() OVER (ORDER BY ${priorityOrderSql}, queue.created_at ASC) AS queue_position
     FROM queue
     JOIN triage_sessions ON triage_sessions.id = queue.triage_session_id
@@ -384,7 +432,13 @@ async function getAdminQueue()
       patients.patient_identifier,
       patients.patient_number,
       triage_sessions.session_id,
-      triage_sessions.symptoms_summary
+      triage_sessions.symptoms_summary,
+      triage_sessions.ai_brief,
+      triage_sessions.ai_suggested_priority,
+      triage_sessions.ai_reason,
+      triage_sessions.ai_risk_factors,
+      triage_sessions.ai_reviewed,
+      triage_sessions.ai_reviewed_at
     FROM queue
     JOIN triage_sessions ON triage_sessions.id = queue.triage_session_id
     JOIN patients ON patients.id = triage_sessions.patient_id
@@ -415,10 +469,13 @@ async function updatePatient(sessionId, updates)
   const healthInsurance = updates.healthInsurance !== undefined ? updates.healthInsurance.trim() : row.health_insurance;
   const aboutDetails = updates.aboutDetails !== undefined ? updates.aboutDetails.trim() : row.about_details;
   const priorityLevel = updates.priorityLevel !== undefined ? updates.priorityLevel : row.priority_level;
+  const aiReviewed = updates.aiReviewed !== undefined ? updates.aiReviewed : row.ai_reviewed === true;
   const anonymous = !fullName && !patientIdentifier && !healthInsurance;
   const priorityChanged = priorityLevel !== row.priority_level;
+  const aiReviewChanged = aiReviewed !== (row.ai_reviewed === true);
 
   validatePriority(priorityLevel);
+  validateAiReviewed(updates.aiReviewed);
 
   await pool.query(
     `UPDATE patients
@@ -450,15 +507,22 @@ async function updatePatient(sessionId, updates)
 
   await pool.query(
     `UPDATE triage_sessions
-    SET priority_level = $1
-    WHERE session_id = $2`,
-    [priorityLevel, sessionId]
+    SET priority_level = $1,
+      ai_reviewed = $2,
+      ai_reviewed_at = CASE
+        WHEN $2 = TRUE THEN COALESCE(ai_reviewed_at, CURRENT_TIMESTAMP)
+        ELSE NULL
+      END
+    WHERE session_id = $3`,
+    [priorityLevel, aiReviewed, sessionId]
   );
 
   const updatedPatient = await getPatient(sessionId);
 
   return {
     ...updatedPatient,
+    aiReviewChanged,
+    previousAiReviewed: row.ai_reviewed === true,
     previousPriority: row.priority_level,
     priorityChanged
   };

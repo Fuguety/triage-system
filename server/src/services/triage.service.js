@@ -1,4 +1,5 @@
 const { pool } = require("../db/database");
+const aiService = require("./ai.service");
 const triageFlow = require("../data/triage");
 
 const answerLabels =
@@ -968,14 +969,38 @@ async function fetchSession(sessionId)
 
 async function completeSession(session, priority, symptomsSummary)
 {
+  const aiSummary = await aiService.generateTriageBrief(
+  {
+    symptomsSummary,
+    ruleBasedPriority: priority,
+    patientContext:
+    {
+      anonymous: session.anonymous,
+      patientNumber: Number(session.patient_number)
+    }
+  });
+
   await pool.query(
     `UPDATE triage_sessions
     SET priority_level = $1,
       status = $2,
       symptoms_summary = $3,
-      completed_at = CURRENT_TIMESTAMP
-    WHERE session_id = $4`,
-    [priority, "completed", symptomsSummary, session.session_id]
+      completed_at = CURRENT_TIMESTAMP,
+      ai_brief = $4,
+      ai_suggested_priority = $5,
+      ai_reason = $6,
+      ai_risk_factors = $7
+    WHERE session_id = $8`,
+    [
+      priority,
+      "completed",
+      symptomsSummary,
+      aiSummary.brief,
+      aiSummary.suggestedPriority,
+      aiSummary.reason,
+      JSON.stringify(aiSummary.riskFactors),
+      session.session_id
+    ]
   );
 
   return {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import "../styles/admin.css"
-import { getAdminQueue, updateQueuePatient, updateQueueStatus } from "../services/adminService"
+import { getAdminQueue, updateQueueStatus } from "../services/adminService"
 import { clearAuth as clearStoredAuth, getStoredHospital, getStoredToken, loginDebugHospital, loginHospital, registerHospital, storeAuth as storeStoredAuth } from "../services/authService"
 import { getPriorityMeta } from "../utils/priority"
 
@@ -58,8 +58,6 @@ function Admin()
   const [queue, setQueue] = useState([])
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [savingId, setSavingId] = useState("")
-  const [formState, setFormState] = useState({})
   const [expandedCards, setExpandedCards] = useState({})
   const [completeTarget, setCompleteTarget] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -84,26 +82,6 @@ function Admin()
 
 
 
-  function syncFormState(patients)
-  {
-    const nextState = {}
-
-    patients.forEach(patient =>
-    {
-      nextState[patient.sessionId] =
-      {
-        aboutDetails: patient.aboutDetails || "",
-        fullName: patient.fullName || "",
-        healthInsurance: patient.healthInsurance || "",
-        patientId: patient.patientId || ""
-      }
-    })
-
-    setFormState(nextState)
-  }
-
-
-
   const loadQueue = useCallback(async (activeToken = token) =>
   {
     try
@@ -114,7 +92,6 @@ function Admin()
       const data = await getAdminQueue(activeToken)
 
       setQueue(data.patients)
-      syncFormState(data.patients)
     }
     catch (requestError)
     {
@@ -193,23 +170,6 @@ function Admin()
 
 
 
-  function handleFieldChange(sessionId, field, value)
-  {
-    setFormState(currentState =>
-    {
-      return {
-        ...currentState,
-        [sessionId]:
-        {
-          ...currentState[sessionId],
-          [field]: value
-        }
-      }
-    })
-  }
-
-
-
   function togglePatientDetails(sessionId)
   {
     setExpandedCards(currentState =>
@@ -223,34 +183,10 @@ function Admin()
 
 
 
-  async function savePatient(sessionId)
-  {
-    try
-    {
-      setSavingId(sessionId)
-      setError("")
-
-      await updateQueuePatient(token, sessionId, formState[sessionId] || {})
-
-      await loadQueue(token)
-    }
-    catch (requestError)
-    {
-      setError(requestError.message)
-    }
-    finally
-    {
-      setSavingId("")
-    }
-  }
-
-
-
   async function handleQueueAction(sessionId, action)
   {
     try
     {
-      setSavingId(sessionId)
       setError("")
 
       await updateQueueStatus(token, sessionId, action)
@@ -268,7 +204,6 @@ function Admin()
     }
     finally
     {
-      setSavingId("")
       setCompleteTarget(null)
       setDeleteTarget(null)
     }
@@ -451,86 +386,46 @@ function Admin()
 
 
 
-  function renderPatientForm(patient)
+  function renderAiSupportSummary(patient)
   {
+    const aiSupportSummary = patient.aiSupportSummary
+
+    if (!aiSupportSummary)
+    {
+      return null
+    }
+
+    const riskFactors = aiSupportSummary.riskFactors || []
+
     return (
-      <div className="form-grid">
-        <label className="form-field">
-          <span>Full Name</span>
-          <input
-            aria-label={`Full name for patient ${patient.patientNumber}`}
-            onChange={event => handleFieldChange(patient.sessionId, "fullName", event.target.value)}
-            type="text"
-            value={formState[patient.sessionId]?.fullName || ""}
-          />
-        </label>
+      <section className="patient-context ai-support-summary patient-clinical-summary" aria-label="AI Support Summary">
+        <div>
+          <p className="question-label">AI Support Summary</p>
+          <p className="ai-support-warning">This AI summary is decision support only and does not replace clinical judgment.</p>
+        </div>
 
-        <label className="form-field">
-          <span>Patient ID</span>
-          <input
-            aria-label={`Patient ID for patient ${patient.patientNumber}`}
-            onChange={event => handleFieldChange(patient.sessionId, "patientId", event.target.value)}
-            type="text"
-            value={formState[patient.sessionId]?.patientId || ""}
-          />
-        </label>
+        <div className="ai-support-grid">
+          <div className="ai-support-item">
+            <span>Brief</span>
+            <strong>{aiSupportSummary.brief || "Not available"}</strong>
+          </div>
 
-        <label className="form-field">
-          <span>Health insurance</span>
-          <input
-            aria-label={`Health insurance for patient ${patient.patientNumber}`}
-            onChange={event => handleFieldChange(patient.sessionId, "healthInsurance", event.target.value)}
-            type="text"
-            value={formState[patient.sessionId]?.healthInsurance || ""}
-          />
-        </label>
+          <div className="ai-support-item">
+            <span>Suggested Priority</span>
+            <strong>{aiSupportSummary.suggestedPriority || "Not available"}</strong>
+          </div>
 
-        <label className="form-field">
-          <span>About / Details</span>
-          <textarea
-            aria-label={`About details for patient ${patient.patientNumber}`}
-            className="sitrep-input"
-            onChange={event => handleFieldChange(patient.sessionId, "aboutDetails", event.target.value)}
-            value={formState[patient.sessionId]?.aboutDetails || ""}
-          />
-        </label>
-      </div>
-    )
-  }
+          <div className="ai-support-item">
+            <span>Reason</span>
+            <strong>{aiSupportSummary.reason || "Not available"}</strong>
+          </div>
 
-
-
-  function renderPatientActions(patient)
-  {
-    return (
-      <div className="admin-actions">
-        <button disabled={savingId === patient.sessionId} onClick={() => savePatient(patient.sessionId)} type="button">
-          Save Changes
-        </button>
-
-        {patient.status === "waiting" && (
-          <button className="secondary-button" disabled={savingId === patient.sessionId} onClick={() => handleQueueAction(patient.sessionId, "assess")} type="button">
-            Start Assessing
-          </button>
-        )}
-
-        {patient.status === "assessing" && (
-          <>
-            <button className="secondary-button" onClick={() => navigate(`/admin/queue/${patient.sessionId}`)} type="button">
-              Open Case
-            </button>
-            <button className="success-button" disabled={savingId === patient.sessionId} onClick={() => setCompleteTarget(patient)} type="button">
-              Complete
-            </button>
-          </>
-        )}
-
-        {patient.status !== "completed" && (
-          <button className="danger-button" disabled={savingId === patient.sessionId} onClick={() => setDeleteTarget(patient)} type="button">
-            Reject
-          </button>
-        )}
-      </div>
+          <div className="ai-support-item">
+            <span>Risk Factors</span>
+            <strong>{riskFactors.length ? riskFactors.join(", ") : "None identified"}</strong>
+          </div>
+        </div>
+      </section>
     )
   }
 
@@ -563,8 +458,31 @@ function Admin()
           </div>
         </section>
 
-        {renderPatientForm(patient)}
-        {renderPatientActions(patient)}
+        {renderAiSupportSummary(patient)}
+
+        <div className="admin-actions compact-actions">
+          <button className="secondary-button" onClick={() => navigate(`/admin/queue/${patient.sessionId}`)} type="button">
+            Check Patient Details
+          </button>
+
+          {patient.status === "waiting" && (
+            <button className="secondary-button" onClick={() => handleQueueAction(patient.sessionId, "assess")} type="button">
+              Start Assessing
+            </button>
+          )}
+
+          {patient.status === "assessing" && (
+            <button className="secondary-button" onClick={() => navigate(`/admin/queue/${patient.sessionId}`)} type="button">
+              Open Case
+            </button>
+          )}
+
+          {patient.status !== "completed" && (
+            <button className="danger-button" onClick={() => setDeleteTarget(patient)} type="button">
+              Reject
+            </button>
+          )}
+        </div>
       </div>
     )
   }

@@ -52,7 +52,7 @@ exports.getAuditLog = async (req, res) =>
 
 exports.updateQueuePatient = async (req, res) =>
 {
-  const { fullName, patientId, healthInsurance, aboutDetails, priorityLevel } = req.body || {};
+  const { fullName, patientId, healthInsurance, aboutDetails, priorityLevel, aiReviewed } = req.body || {};
   const priorityLevelSnakeCase = req.body ? req.body.priority_level : undefined;
   const requestedPriorityLevel = priorityLevel !== undefined ? priorityLevel : priorityLevelSnakeCase;
 
@@ -81,6 +81,11 @@ exports.updateQueuePatient = async (req, res) =>
     return res.status(400).json({ error: "priority_level must be a string" });
   }
 
+  if (aiReviewed !== undefined && typeof aiReviewed !== "boolean")
+  {
+    return res.status(400).json({ error: "aiReviewed must be a boolean" });
+  }
+
   try
   {
     const result = await queueService.updatePatient(req.params.sessionId,
@@ -89,6 +94,7 @@ exports.updateQueuePatient = async (req, res) =>
       patientId,
       healthInsurance,
       aboutDetails,
+      aiReviewed,
       priorityLevel: requestedPriorityLevel
     });
 
@@ -118,6 +124,22 @@ exports.updateQueuePatient = async (req, res) =>
         {
           previousPriority: result.previousPriority,
           newPriority: result.priority
+        },
+        sessionId: req.params.sessionId
+      });
+    }
+
+    if (result.aiReviewChanged)
+    {
+      await auditService.recordAction(
+      {
+        action: "ai_summary_reviewed",
+        actorName: req.user.hospitalName,
+        actorRole: req.user.role,
+        details:
+        {
+          previousValue: result.previousAiReviewed,
+          newValue: result.aiReviewed
         },
         sessionId: req.params.sessionId
       });
